@@ -8,8 +8,19 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "axios": "^0.19.2",
+    "bluebird": "^3.7.2",
+    "body-parser": "^1.19.0",
+    "cookie-parser": "^1.4.5",
     "core-js": "^3.6.5",
+    "couchbase": "^3.0.4",
+    "debug": "^4.1.1",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "morgan": "^1.10.0",
+    "serve-favicon": "^2.5.0",
     "shelljs": "^0.8.4",
+    "sse-channel": "^3.1.1",
     "vue": "^2.6.11",
     "vue-router": "^3.2.0"
   },

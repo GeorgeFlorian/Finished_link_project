@@ -1,43 +1,37 @@
 <template>
   <div id="wrapper">
-    <div class="input_row">
+    <!-- <div class="input_row">
       <input type="text" class="input_text" id="shell" v-model="shell_command" />
       <label class="label_" for="shell">Type Shell Command</label>
-    </div>
-    <button type="button" class="button" @click="shellExec">Submit !</button>
+    </div>-->
+    <button type="button" class="button" @click="restartDevice">Restart Device</button>
   </div>
 </template>
 
 <script>
-import { exec } from "child_process";
-// var exec = require('child_process').exec;
+import axios from "axios";
+
+const serverURL = location.origin;
+const server = axios.create({ baseURL: serverURL });
 
 export default {
   name: "ShellExec",
   components: {},
   data() {
-    return {
-      shell_command: ""
-    };
+    return {};
   },
   methods: {
-    async shell() {
-      return new Promise((resolve, reject) => {
-        exec(this.shell_command, (err, stdout, stderr) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({ stdout, stderr });
-          }
+    restartDevice: function() {
+      server
+        .post("/home", { command: "ls -l"})
+        // server.post("/home", "sudo reboot")
+        .then(res => {
+          console.log("res.data: ");
+          console.log(res.data);
+        })
+        .catch(error => {
+          console.log(error);
         });
-      });
-    },
-
-    async shellExec() {
-      let { stdout } = await this.shell();
-      for (let line of stdout.split("\n")) {
-        console.log(`ls: ${line}`);
-      }
     }
   }
 };

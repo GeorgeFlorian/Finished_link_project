@@ -1,9 +1,9 @@
 const { exec } = require("child_process");
 
 
-async function shell() {
+async function shell(command) {
     return new Promise((resolve, reject) => {
-      exec("ls -la", (err, stdout, stderr) => {
+      exec(command, (err, stdout, stderr) => {
         if (err) {
           reject(err);
         } else {
@@ -13,8 +13,8 @@ async function shell() {
     });
   }
 
-  async function shellExec() {
-    let { stdout } = await shell();
+  async function shellExec(command) {
+    let { stdout } = await shell(command);
     for (let line of stdout.split("\n")) {
       console.log(`ls: ${line}`);
     }
