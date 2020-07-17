@@ -22,8 +22,10 @@ export default {
   },
   methods: {
     restartDevice: function() {
+      let currentUrl = window.location.pathname;
+      console.log("currentUrl: " + currentUrl);
       server
-        .post("/home", { command: "ls -l"})
+        .post(currentUrl, { command: "ls -l"})
         // server.post("/home", "sudo reboot")
         .then(res => {
           console.log("res.data: ");

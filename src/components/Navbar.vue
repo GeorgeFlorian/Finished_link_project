@@ -21,6 +21,9 @@
         <li>
           <router-link to="/update">Update</router-link>
         </li>
+        <li>
+          <router-link to="/files">File Manager</router-link>
+        </li>
       </ul>
     </div>
   </nav>

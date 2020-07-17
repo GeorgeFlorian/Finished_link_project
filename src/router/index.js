@@ -7,6 +7,7 @@ Vue.use(VueRouter);
 const routes = [
   {
     path: "/",
+    redirect: "/home",
     component: Home,
   },
   {
@@ -25,6 +26,11 @@ const routes = [
     component: () => import(/* webpackChunkName: "staticIP" */ "../views/Static.vue")
   },
   {
+    path: "/files",
+    name: "FileManager",
+    component: () => import(/* webpackChunkName: "staticIP" */ "../views/FileManager.vue")
+  },
+  {
     path: "/update",
     name: "Update",
     // route level code-splitting
@@ -35,9 +41,8 @@ const routes = [
 ];
 
 const router = new VueRouter({
-  // mode: "history",
-  mode: process.env.IS_ELECTRON ? 'hash' : 'history',
-  base: process.env.BASE_URL,
+  mode: "history",
+  // base: process.env.BASE_URL,
   routes,
 });
 

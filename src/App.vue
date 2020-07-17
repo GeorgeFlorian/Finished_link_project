@@ -5,7 +5,6 @@
     <transition name="fade" mode="out-in">
       <router-view></router-view>
     </transition>
-    <ShellExec></ShellExec>
     <Footer></Footer>
   </div>
 </template>
@@ -13,14 +12,12 @@
 <script>
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import ShellExec from "./components/ShellExec";
 
 export default {
   name: "App",
   components: {
     Navbar,
-    Footer,
-    ShellExec
+    Footer
   }
 }
 </script>
