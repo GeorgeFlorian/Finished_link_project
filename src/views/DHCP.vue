@@ -9,7 +9,7 @@
           </h1>
         </div>
         <div class="inner_container">
-          <form method="post" action>
+          <form action="javascript:void(0);" @submit="sendData" novalidate="true">
             <div class="input_radio">
               <span>Please select the type of connection:</span>
               <br />
@@ -27,10 +27,10 @@
                   placeholder="Type here the Network Name (SSID)"
                   id="networkName"
                   name="networkName"
-                  value
                   pattern=".{5,30}"
                   title="Enter between 5 and 30 characters"
                   required
+                  v-model="ssid"
                 />
                 <label class="label_" for="networkName">Network Name (SSID)</label>
               </div>
@@ -41,10 +41,11 @@
                   placeholder="Type here here Password"
                   id="networkPassword"
                   name="networkPassword"
-                  value
                   minlength="8"
                   pattern=".{8,63}"
                   title="Enter between 8 and 63 characters"
+                  required
+                  v-model="password"
                 />
                 <label class="label_" for="networkPassword">Password</label>
               </div>
@@ -58,12 +59,38 @@
 </template>
 
 <script>
+import axios from "axios";
+
+const serverURL = location.origin;
+const server = axios.create({ baseURL: serverURL });
+
 export default {
   name: "DHCP",
   data() {
     return {
-      visible: false
+      visible: false,
+      ssid: "",
+      password: ""
     };
+  },
+  methods: {
+    sendData: function() {
+      if(!this.visible) {
+        // nothing
+      }
+      if (this.ssid === "" || this.password === "") return;
+      let currentUrl = window.location.pathname;
+      console.log("currentUrl:");
+      console.log(currentUrl);
+      server
+        .post(currentUrl, { ssid: this.ssid, password: this.password })
+        .then(res => {
+          console.log(res);
+        })
+        .catch(err => {
+          console.log(err);
+        });
+    }
   }
 };
 </script>
