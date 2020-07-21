@@ -224,6 +224,9 @@ export default {
 
 <style scoped>
 /* DHCP and Static IP Pages - START */
+.top_container {
+  height: auto;
+}
 
 .mid_container .inner_container form {
   justify-content: flex-start;

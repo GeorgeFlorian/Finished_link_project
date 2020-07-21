@@ -148,6 +148,7 @@ section h1 {
 }
 
 .top_container {
+  height: 300px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;

@@ -41,8 +41,8 @@ export default {
 
 <style scoped>
 #wrapper {
-  width: 500px;
-  height: 150px;
+  width: auto;
+  height: auto;
   margin: 0 auto;
   display: flex;
   flex-direction: column;

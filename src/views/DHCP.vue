@@ -75,17 +75,24 @@ export default {
   },
   methods: {
     sendData: function() {
-      if(!this.visible) {
+      if (!this.visible) {
         // nothing
       }
       if (this.ssid === "" || this.password === "") return;
       let currentUrl = window.location.pathname;
-      console.log("currentUrl:");
-      console.log(currentUrl);
+      // console.log("currentUrl:");
+      // console.log(currentUrl);
       server
         .post(currentUrl, { ssid: this.ssid, password: this.password })
         .then(res => {
-          console.log(res);
+          // console.log(res.status);
+          if (res.status == 200) {
+            // change alert() into something more pleasant
+            alert("Settings have been saved.");
+            this.$router.go();
+          } else {
+            alert("Something went wrong. Please try again");
+          }
         })
         .catch(err => {
           console.log(err);
@@ -97,6 +104,9 @@ export default {
 
 <style scoped>
 /* DHCP and Static IP Pages - START */
+.top_container {
+  height: auto;
+}
 
 .mid_container .inner_container form {
   justify-content: flex-start;

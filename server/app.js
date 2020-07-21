@@ -35,15 +35,11 @@ app.use(function(req, res, next) {
 // serve the Vue Interface
 const buildLocation = path.join(__dirname, "../dist");
 app.use(express.static(buildLocation));
-app.use(history({
+app.use('/', history({
   disableDotRule: true,
   verbose: true
 }));
 app.use(express.static(buildLocation));
-
-app.get('/home', function(req, res) {
-  res.sendFile(path.join(__dirname, "../dist/index.html"));
-});
 
 // handle POST request on /files for button click
 app.post("/files", function(req, res) {
@@ -84,20 +80,24 @@ app.post("/files", function(req, res) {
 
 app.post("/dhcpIP", function (req, res) {
   // check if request body is empty
-  if (req.body.constructor === Object && Object.keys(req.body).length === 0)
-    return;
+  if (req.body.constructor === Object && Object.keys(req.body).length === 0) {
+    errors.push("Inputs are empty");
+    return res.sendStatus(500);
+  }
     
   let fileText = req.body;
   console.log("fileText: ");
   console.log(fileText);
   let ssid = req.body.ssid;
   let pass = req.body.password;
+  let errors = [];
 
   // open file
   const networkFile = fs.openSync(path.join(__dirname + '/test.txt'), "w+");
   // lock file
   flock(networkFile, 'ex', (err) => {
     if(err) {
+      errors.push("Could not lock file.");
       return console.log("Could not lock file.");
     }
     // file is locked
@@ -108,13 +108,15 @@ app.post("/dhcpIP", function (req, res) {
   let chunk = ssid + '\n' + pass;
   stream.write(chunk, (err) => {
     if(err) {
-      console.log("Could not write to file.");
+      errors.push("Could not write to file.");
+      return console.log("Could not write to file.");
     }
   });
   stream.end();
   // unlock file
   flock(networkFile, 'un', (err) => {
     if(err) {
+      errors.push("Could not unlock file.");
       return console.log("Could not unlock file.");
     }
     // file unlocked
@@ -123,13 +125,15 @@ app.post("/dhcpIP", function (req, res) {
   // close file
   fs.close(networkFile, err => {
     if(err) {
-      console.log("Could not close file.");
+      errors.push("Could not close file.");
+      return console.log("Could not close file.");
     }
   });
-
-  // res.status(200);
-  res.redirect('/');
-  res.end();
+  
+  if(errors.length != 0) {
+    res.sendStatus(500);
+  } else
+  res.sendStatus(200);
 });
 
 // catch 404 and forward to error handler

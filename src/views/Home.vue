@@ -64,5 +64,7 @@ export default {
 </script>
 
 <style scoped>
-  
+  .left_container p {
+      padding: 1em;
+  }
 </style>
