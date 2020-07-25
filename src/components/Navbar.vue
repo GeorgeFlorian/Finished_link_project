@@ -36,6 +36,7 @@ export default {
 </script>
 
 <style scoped>
+
 /* START - Navigation Bar */
 .mini-logo,
 .fa-angle-up {

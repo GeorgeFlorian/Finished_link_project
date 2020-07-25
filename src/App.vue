@@ -10,6 +10,7 @@
 </template>
 
 <script>
+import '@fortawesome/fontawesome-free/js/all.js'
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 

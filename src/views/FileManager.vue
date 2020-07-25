@@ -1,82 +1,100 @@
 <template>
   <section>
-    <div class="top_container update_container">
+    <div class="top_container">
       <div class="mid_container">
         <div class="title">
           <h1>
-            Setup -
-            <span class="setting">Update</span> Firmware
+            File
+            <span class="setting">Manager</span>
           </h1>
         </div>
-        <div class="update_text_container">
-          Please upload the provided
-          <span style="color:#ea5a64">Metrici_MP_Display.zip</span> archive and then
-          <span style="color:#ea5a64">Metrici_MP_Display</span> file.
-          <br />
-          <br />Notes:
-          <br />(1): First upload
-          <span style="color:#ea5a64">Metrici_MP_Display.zip</span> and then
-          <span style="color:#ea5a64">Metrici_MP_Display</span>.
-          <br />(2): Not uploading the files in the above mentioned order will stop the display from working correctly.
-          <br />(3): Your settings are safe. Updating the device won't change the configuration.
-          <br />(4): You will be asked for a code
-          <span style="color:#96ede5">only</span> when uploading
-          <span style="color:#ea5a64">Metrici_MP_Display.zip</span>.
-          <br />(5): The code will be provided by Metrici alongside
-          <span style="color:#ea5a64">Metrici_MP_Display.zip</span>.
-          <br />(6): After pressing the
-          <span style="color:#96ede5">Update</span> button you will be prompted with a success or failure message.
-        </div>
-        <form method="POST" enctype="multipart/form-data">
-          <div>
-            <label class="button file_input_label" id="special_label" for="files">Select files</label>
-            <input type="file" id="files" name="uploaded_file" />
-            <input class="button upload_button" type="submit" name="update_button" value="Update" />
+        <form @submit.prevent="sendFile" method="POST" enctype="multipart/form-data">
+          <div v-if="message">
+            <div>{{message}}</div>
           </div>
-          <div id="input_code">
-            <div class="input_row">
-              <input
-                type="text"
-                class="input_text"
-                id="file_code"
-                placeholder="Type here the provided code"
-                name="file_code"
-                value
-                minlength="32"
-                title="Enter the provided code"
-              />
-              <label class="label_" for="file_code">Enter provided code</label>
+          <label for="file" class="label-container">
+            <span class="choose-file">Choose a File</span>
+            <input
+              multiple
+              type="file"
+              @change="selectFile()"
+              ref="files_ref"
+              class="file-input"
+              id="file"
+            />
+          </label>
+          <div class="file-manager">
+            <div
+              :class="`file-line ${file.status ? 'wrong-file' : ''}`"
+              v-for="(file, index) in files"
+              :key="index"
+            >
+              <div class="left-side">
+                {{file.name}}
+                <span v-if="file.status">&nbsp;- {{file.status}}</span>
+              </div>
+              <div class="right-side" @click.prevent="files.splice(index, 1)">
+                <i class="fa fa-trash" aria-hidden="true"></i>
+              </div>
             </div>
           </div>
+          <button class="button">Send</button>
         </form>
       </div>
     </div>
-    <ShellExec></ShellExec>
   </section>
 </template>
 
 <script>
-import ShellExec from "../components/ShellExec";
+// import axios from "axios";
+import _ from "lodash";
 
 export default {
-  name: 'FileManager',
-  components: {
-    ShellExec
-  }
+  name: "FileManager",
+  data() {
+    return {
+      files: [],
+      message: "",
+      error: false,
+    };
+  },
+  methods: {
+    // select and validate files
+    selectFile() {
+      const files = this.$refs.files_ref.files;
+      // this.files = [...this.files, ...files];
+      this.files = [
+        ...this.files,
+        ..._.map(files, (file) => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          status: this.validate(file),
+        })),
+      ];
+    },
+    validate(file) {
+      const MAX_SIZE = 1000;
+      const allowedTypes = ["text/plain"];
 
-}
+      if (file.size > MAX_SIZE) {
+        return `File too large. Max size is ${MAX_SIZE / 1000}kb`;
+      }
+
+      if (!allowedTypes.includes(file.type)) {
+        return "Only text files are allowed";
+      }
+      return ""; // empty string = false
+    },
+    async sendFile() {},
+  },
+};
 </script>
 
 <style scoped>
 /* Update Page - START */
-.update_container {
+.top_container {
   height: auto;
-}
-
-.update_text_container {
-  padding: 0.65em;
-  letter-spacing: 0.5px;
-  line-height: 1.4em;
 }
 
 .update_container form {
@@ -86,37 +104,67 @@ export default {
   justify-content: space-evenly;
 }
 
-.update_container form div {
+.label-container {
+  padding: 0.5em;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+.label-container span {
+  padding: 0.5em;
+}
+
+.choose-file {
+  display: block;
+  background-color: #16c8b1;
+  width: 30%;
+  color: black;
+  transition: all 0.25s ease-in-out;
+}
+
+.choose-file:hover {
+  background-color: #0e8374;
+  cursor: pointer;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-manager {
+  height: auto;
   width: 100%;
   display: flex;
-  justify-content: space-evenly;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  text-align: center;
+  background: #0e8374;
+  color: black;
+  font-weight: bold;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
 }
 
-.file_input_label {
-  display: block;
+.file-line {
+  height: auto;
+  width: 90%;
+  background: #16c8b1;
+  margin: 0.5em;
+  padding: 0.2em 1em;
+  display: flex;
+  justify-content: space-between;
+  transition: all 0.25s ease-in-out;
 }
 
-#files {
-  display: none;
-}
-.upload_button {
-  background-color: #237988;
+.file-line:hover {
+  filter: brightness(80%);
+  cursor: pointer;
 }
 
-.upload_button:hover,
-.upload_button:focus {
-  background-color: #33afc5;
-  outline: 0;
-}
-
-#input_code {
-  display: none;
-}
-
-#input_code .label_ {
-  left: 0;
+.wrong-file {
+  background: lightcoral;
 }
 
 /* Update Page - END */

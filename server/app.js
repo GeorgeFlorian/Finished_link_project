@@ -1,10 +1,10 @@
+require("dotenv").config();
 const express = require("express");
+const multer  = require('multer')
 const history = require('connect-history-api-fallback');
 const path = require("path");
 const fs = require('fs');
 const {flock} = require('fs-ext');
-
-require("dotenv").config();
 
 const debug = require("debug")("poi:server");
 const favicon = require("serve-favicon");
@@ -31,7 +31,6 @@ app.use(function(req, res, next) {
   next();
 });
 
-
 // serve the Vue Interface
 const buildLocation = path.join(__dirname, "../dist");
 app.use(express.static(buildLocation));
@@ -42,41 +41,41 @@ app.use('/', history({
 app.use(express.static(buildLocation));
 
 // handle POST request on /files for button click
-app.post("/files", function(req, res) {
-  if (req.body.constructor === Object && Object.keys(req.body).length === 0)
-    return;
+// app.post("/files", function(req, res) {
+//   if (req.body.constructor === Object && Object.keys(req.body).length === 0)
+//     return;
 
-  let shell_command = req.body.command;
+//   let shell_command = req.body.command;
 
-  console.log("req.body: ");
-  console.log(shell_command);
+//   console.log("req.body: ");
+//   console.log(shell_command);
 
-  async function shell(command) {
-    return new Promise((resolve, reject) => {
-      exec(command, (err, stdout, stderr) => {
-        if (err) {
-          console.error(`exec error: ${err}`);
-          reject(err);
-        } else {
-        //   console.log(`stdout: ${stdout}`);
-        //   console.error(`stderr: ${stderr}`);
-          resolve({ stdout, stderr });
-        }
-      });
-    });
-  }
+//   async function shell(command) {
+//     return new Promise((resolve, reject) => {
+//       exec(command, (err, stdout, stderr) => {
+//         if (err) {
+//           console.error(`exec error: ${err}`);
+//           reject(err);
+//         } else {
+//         //   console.log(`stdout: ${stdout}`);
+//         //   console.error(`stderr: ${stderr}`);
+//           resolve({ stdout, stderr });
+//         }
+//       });
+//     });
+//   }
 
-  async function shellExec(command) {
-    let { stdout } = await shell(command);
-    for (let line of stdout.split("\n")) {
-      console.log(`cmd line: ${line}`);
-    }
-  }
+//   async function shellExec(command) {
+//     let { stdout } = await shell(command);
+//     for (let line of stdout.split("\n")) {
+//       console.log(`cmd line: ${line}`);
+//     }
+//   }
 
-  shellExec(shell_command);
+//   shellExec(shell_command);
 
-  res.send("Hello !");
-});
+//   res.send("Hello !");
+// });
 
 app.post("/dhcpIP", function (req, res) {
   // check if request body is empty
@@ -136,6 +135,32 @@ app.post("/dhcpIP", function (req, res) {
   res.sendStatus(200);
 });
 
+// Handle file upload
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ["text/plain"];
+
+  if(!allowedTypes.includes(file.mimetype)) {
+    const error = new Error("Wrong file type");
+    error.code = "LIMIT_FILE_TYPES";
+    return cb(error, false);
+  }
+  cb(null, true);
+};
+
+const MAX_SIZE = 1000; // 1kb
+const upload = multer({
+  dest: './uploads/',
+  fileFilter,
+  limits: {
+    fileSize: MAX_SIZE
+  }
+});
+
+app.post('/files', upload.single('file'), (req, res) => {
+  res.json({ file: req.file });
+});
+
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   console.dir(req);
@@ -146,7 +171,15 @@ app.use(function(req, res, next) {
 });
 
 // error handler
-app.use(function(err, req, res) {
+app.use(function(err, req, res, next) {
+  if(err.code === "LIMIT_FILE_TYPES") {
+    res.status(422).json({ error: "Only text files are allowed" });
+    return;
+  }
+  if(err.code === "LIMIT_FILE_SIZE") {
+    res.status(422).json({ error: `File too large. Max size is ${MAX_SIZE/1000}kb`});
+    return;
+  }
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
