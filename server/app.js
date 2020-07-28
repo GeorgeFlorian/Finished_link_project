@@ -40,42 +40,45 @@ app.use('/', history({
 }));
 app.use(express.static(buildLocation));
 
-// handle POST request on /files for button click
-// app.post("/files", function(req, res) {
-//   if (req.body.constructor === Object && Object.keys(req.body).length === 0)
-//     return;
+// MAKE FORM INSIDE VUE COMPONENT WITH form(action="/restart")
+// HANDLE "/restart" route
 
-//   let shell_command = req.body.command;
+// handle POST request on /restart for button click
+app.post("/restart", function(req, res) {
+  if (req.body.constructor === Object && Object.keys(req.body).length === 0)
+    return;
 
-//   console.log("req.body: ");
-//   console.log(shell_command);
+  let shell_command = req.body.command;
 
-//   async function shell(command) {
-//     return new Promise((resolve, reject) => {
-//       exec(command, (err, stdout, stderr) => {
-//         if (err) {
-//           console.error(`exec error: ${err}`);
-//           reject(err);
-//         } else {
-//         //   console.log(`stdout: ${stdout}`);
-//         //   console.error(`stderr: ${stderr}`);
-//           resolve({ stdout, stderr });
-//         }
-//       });
-//     });
-//   }
+  console.log("req.body: ");
+  console.log(shell_command);
 
-//   async function shellExec(command) {
-//     let { stdout } = await shell(command);
-//     for (let line of stdout.split("\n")) {
-//       console.log(`cmd line: ${line}`);
-//     }
-//   }
+  async function shell(command) {
+    return new Promise((resolve, reject) => {
+      exec(command, (err, stdout, stderr) => {
+        if (err) {
+          console.error(`exec error: ${err}`);
+          reject(err);
+        } else {
+        //   console.log(`stdout: ${stdout}`);
+        //   console.error(`stderr: ${stderr}`);
+          resolve({ stdout, stderr });
+        }
+      });
+    });
+  }
 
-//   shellExec(shell_command);
+  async function shellExec(command) {
+    let { stdout } = await shell(command);
+    for (let line of stdout.split("\n")) {
+      console.log(`cmd line: ${line}`);
+    }
+  }
 
-//   res.send("Hello !");
-// });
+  shellExec(shell_command);
+
+  res.send("Hello !");
+});
 
 app.post("/dhcpIP", function (req, res) {
   // check if request body is empty
@@ -135,8 +138,7 @@ app.post("/dhcpIP", function (req, res) {
   res.sendStatus(200);
 });
 
-// Handle file upload
-
+// HANDLE FILE UPLOAD
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["text/plain"];
 
@@ -157,8 +159,13 @@ const upload = multer({
   }
 });
 
-app.post('/files', upload.single('file'), (req, res) => {
-  res.json({ file: req.file });
+// app.post('/files', upload.single('file'), (req, res) => {
+//   res.json({ file: req.file });
+// });
+
+// 'files' name comes from formData.append('files', file); that is inside the Vue component
+app.post('/files', upload.array('files'), (req, res) => {
+  res.json({ files: req.files });
 });
 
 // catch 404 and forward to error handler
@@ -171,7 +178,7 @@ app.use(function(req, res, next) {
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function(err, req, res) {
   if(err.code === "LIMIT_FILE_TYPES") {
     res.status(422).json({ error: "Only text files are allowed" });
     return;
