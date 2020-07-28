@@ -123,7 +123,6 @@ section {
   align-items: center;
   margin-top: 75px;
   padding: 1em;
-  background-color: #26282d;
   border-radius: 8px;
 }
 
@@ -160,14 +159,14 @@ section h1 {
 .right_container {
   width: 48%;
   height: 100%;
-  background-color: #2f3238;
+  background-color: #26282d;
   border-radius: 8px;
 }
 
 .mid_container {
   width: 100%;
   height: 100%;
-  background-color: #2f3238;
+  background-color: #26282d;
   border-radius: 8px;
 }
 
@@ -270,7 +269,7 @@ section h1 {
 /* START - Bottom Container */
 
 .bottom_container {
-  background-color: #2f3238;
+  background-color: #26282d;
   width: 100%;
 }
 

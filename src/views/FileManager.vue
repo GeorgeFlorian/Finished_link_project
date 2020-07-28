@@ -5,51 +5,53 @@
         <div class="title">
           <h1>
             File
-            <span class="setting">Manager</span>
+            <span>Manager</span>
           </h1>
         </div>
-        <form @submit.prevent="sendFile" method="POST" enctype="multipart/form-data">
-          <div v-if="message">
-            <div>{{message}}</div>
-          </div>
-          <label for="file" class="choose-file-container">
-            <span>Choose a File</span>
-            <input
-              multiple
-              type="file"
-              @change="selectFile()"
-              ref="files_ref"
-              class="file-input"
-              id="file"
-            />
-          </label>
-          
-          <div class="file-manager">
+        <form @submit.prevent="sendFiles" method="POST" enctype="multipart/form-data">
+          <!-- TODO: File Manager Component -->
+          <div class="file-manager-container">
+            <div class="file-line header">
+              <div class="file-name">File name:</div>
+              <div class="file-size">Size:</div>
+              <div class="action-buttons">Actions:</div>
+            </div>
             <div
               :class="`file-line ${file.status ? 'wrong-file' : ''}`"
-              v-for="(file, index) in files"
+              v-for="(file, index) in currentFiles"
               :key="index"
             >
-              <!-- left side  -->
-              <div class="left-side">
-                {{file.name}}
-                <span v-if="file.status">&nbsp;- {{file.status}}</span>
+              <!-- left  -->
+              <div class="file-name">
+                {{ file.name }}
+                <span v-if="file.status">&nbsp;- {{ file.status }}</span>
               </div>
-              <!-- right side -->
-              <div
-                class="right-side"
-                @click.prevent="files.splice(index, 1); uploadFiles.splice(index, 1)"
-              >
-                <i class="fa fa-trash" aria-hidden="true"></i>
+              <!-- middle  -->
+              <div class="file-size">
+                {{ file.size }} kb
+                <span v-if="file.status">&nbsp;- {{ file.status }}</span>
+              </div>
+              <!-- right -->
+              <div class="action-buttons">
+                <span>
+                  <i class="far fa-edit"></i>
+                </span>
+                <span @click.prevent="currentFiles.splice(index, 1)">
+                  <i class="fa fa-trash" aria-hidden="true"></i>
+                </span>
               </div>
             </div>
+            <input multiple type="file" @change="selectFile()" ref="files_ref" class="input-field" />
+          </div>
+          <!-- <span v-if="uploading" class="progress-bar">
+              <progress :value="progress" max="100">{{progress}}%</progress>
+          </span>-->
+
+          <div class="upload-message" v-if="message">
+            <div>{{ message }}</div>
           </div>
 
-          <div class="drop-zone">
-            <span>Drag and drop files here</span>
-          </div>
-
-          <button class="button">Send</button>
+          <!-- <button class="button">Send</button> -->
         </form>
       </div>
     </div>
@@ -64,23 +66,72 @@ export default {
   name: "FileManager",
   data() {
     return {
-      files: [],
+      currentFiles: [
+        {
+          name: "test1",
+          size: 1.52,
+          type: "text/plain",
+          status: "",
+        },
+        {
+          name: "test2",
+          size: 1.33,
+          type: "text/plain",
+          status: "",
+        },
+        {
+          name: "test3",
+          size: 1,
+          type: "text/plain",
+          status: "",
+        },
+        {
+          name: "test4",
+          size: 0.85,
+          type: "text/plain",
+          status: "",
+        },
+      ],
+      // currentFiles: [],
       uploadFiles: [],
+      progress: 0,
       message: "",
+      uploading: false,
       error: false,
     };
   },
+  mounted() {
+    // this.getFiles();
+  },
   methods: {
-    // select and validate files
+    // get file list from Express server
+    getFiles() {
+      axios
+        .get("/getFileList")
+        .then((res) => {
+          this.currentFiles = [];
+          this.currentFiles = [...this.currentFiles, ...res.data];
+          console.log(this.currentFiles);
+        })
+        .catch((err) => {
+          console.error(err);
+        });
+    },
+    // select files
     selectFile() {
-      const files = this.$refs.files_ref.files;
-      this.uploadFiles = [...this.uploadFiles, ...files];
+      this.message = "";
+      this.progress = 0;
+      const selectedFiles = this.$refs.files_ref.files;
+      // fill array with files that are going to be uploaded
+      this.uploadFiles = [...this.uploadFiles, ...selectedFiles];
+      // console.log(files);
 
-      // making an array of file objects
+      // make an array of file objects from selectedFiles
+      // append to currentFiles array
       // used for rendering on client side
-      this.files = [
-        ...this.files,
-        ..._.map(files, (file) => ({
+      this.currentFiles = [
+        ...this.currentFiles,
+        ..._.map(selectedFiles, (file) => ({
           name: file.name,
           size: file.size,
           type: file.type,
@@ -88,6 +139,7 @@ export default {
         })),
       ];
     },
+    // validate files
     validate(file) {
       const MAX_SIZE = 1000;
       const allowedTypes = ["text/plain"];
@@ -95,30 +147,43 @@ export default {
       if (!allowedTypes.includes(file.type)) {
         return "Only text files are allowed";
       }
-      
+
       if (file.size > MAX_SIZE) {
         return `File too large. Max size is ${MAX_SIZE / 1000}kb`;
       }
 
       return ""; // empty string = false
     },
-    async sendFile() {
+    // send file object to server
+    async sendFiles() {
       const formData = new FormData();
+      var file_count = 0;
       // lodash forEach
-      _.forEach(this.uploadFiles, file => {
-        if(this.validate(file) === "") {
-          formData.append('files', file);
+      // send only validated (correct) files
+
+      _.forEach(this.uploadFiles, (file) => {
+        if (this.validate(file) === "") {
+          formData.append("files", file);
+          file_count++;
         }
       });
 
       try {
-        await axios.post("/files", formData);
-        this.message = "Files has been uploaded";
-        this.files = [];
+        this.uploading = true;
+        await axios.post("/files", formData, {
+          onUploadProgress: (event) =>
+            (this.progress = Math.round((event.loaded * 100) / event.total)),
+        });
+        if (file_count) this.message = "The files have been uploaded.";
+        else this.message = "No file has been uploaded.";
+
         this.uploadFiles = [];
-      } catch(err) {
+        this.uploading = false;
+        this.getFiles();
+      } catch (err) {
         this.message = err.response.data.error;
         this.error = true;
+        this.uploading = false;
       }
     },
   },
@@ -126,88 +191,88 @@ export default {
 </script>
 
 <style scoped>
-/* Update Page - START */
+.wrong-file {
+  background: lightcoral;
+}
+
 .top_container {
   height: auto;
 }
 
 form {
   padding: 0.5em;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-evenly;
-  align-items: center;
 }
 
-.choose-file-container {
-  margin: 1em;
-}
-
-.choose-file-container span {
-  padding: 0.5em;
-  display: block;
-  background-color: #16c8b1;
-  color: black;
-  transition: all 0.25s ease-in-out;
-}
-
-.choose-file-container span:hover {
-  background-color: #0e8374;
-  cursor: pointer;
-}
-
-.file-input {
-  display: none;
-}
-
-.file-manager {
-  height: auto;
+.file-manager-container {
+  position: relative;
   width: 100%;
+  height: 100%;
+  margin-bottom: 20px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: #0e8374;
-  color: black;
+}
+
+.file-line {
+  width: 100%;
+  border-bottom: 2px solid #383c43;
+  margin: 1px 0;
+  padding: 2px 10px;
+  font-size: 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  letter-spacing: 0.5px;
+  transition: all 0.25s ease-in-out;
+  text-rendering: optimizeLegibility;
+}
+
+.file-line:hover {
+  background: #383c43;
+}
+
+.header {
   font-weight: bold;
   user-select: none;
   -moz-user-select: none;
   -webkit-user-select: none;
+  border-bottom: 4px solid #383c43;
+  font-size: 1.3rem;
 }
 
-.file-line {
-  height: auto;
-  width: 90%;
-  background: #16c8b1;
-  margin: 0.5em;
-  padding: 0.2em 1em;
-  display: flex;
-  justify-content: space-between;
-  /* transition: all 0.25s ease-in-out; */
+.header:hover {
+  background: rgba(0, 0, 0, 0);
 }
 
-.file-line:hover {
-  filter: brightness(80%);
+.file-size {
+  min-width: 90px;
+  text-align: right;
+}
+.header .file-size {
+  margin-right:30px;
+}
+
+.action-buttons span {
+  font-size: 1.4rem;
+  transition: color 0.15s ease-in-out;
+}
+
+.action-buttons span:last-child {
+  margin-left: 10px;
+}
+
+.action-buttons span:hover {
+  color: rgba(225, 20, 34, 1);
   cursor: pointer;
 }
 
-.wrong-file {
-  background: lightcoral;
+.input-field {
+  opacity: 0;
+  /* position: absolute; */
 }
 
-.drop-zone {
-  width: 50%;
-  margin-top: 20px;
-  height: 200px;
-  background: #0e8374;
-  text-align: center;
-  line-height: 200px;
-  transition: all 0.25s ease-in-out;
+.upload-message {
+  margin: 1em;
 }
-
-.drop-zone:hover {
-  background: #16c8b1;
-}
-
-/* Update Page - END */
 </style>

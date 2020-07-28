@@ -29,7 +29,8 @@
     "shelljs": "^0.8.4",
     "sse-channel": "^3.1.1",
     "vue": "^2.6.11",
-    "vue-router": "^3.2.0"
+    "vue-router": "^3.2.0",
+    "vuedraggable": "^2.24.0"
   },
   "devDependencies": {
     "@fortawesome/fontawesome-free": "^5.14.0",

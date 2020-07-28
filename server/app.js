@@ -1,10 +1,10 @@
 require("dotenv").config();
 const express = require("express");
-const multer  = require('multer')
-const history = require('connect-history-api-fallback');
+const multer = require("multer");
+const history = require("connect-history-api-fallback");
 const path = require("path");
-const fs = require('fs');
-const {flock} = require('fs-ext');
+const fs = require("fs");
+const { flock } = require("fs-ext");
 
 const debug = require("debug")("poi:server");
 const favicon = require("serve-favicon");
@@ -24,9 +24,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(function(req, res, next) {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin",
+    "Content-Type, Authorization, Content-Length, X-Requested-With"
+  );
 
   next();
 });
@@ -34,17 +38,46 @@ app.use(function(req, res, next) {
 // serve the Vue Interface
 const buildLocation = path.join(__dirname, "../dist");
 app.use(express.static(buildLocation));
-app.use('/', history({
-  disableDotRule: true,
-  verbose: true
-}));
+app.use(
+  "/",
+  history({
+    disableDotRule: true,
+    verbose: true,
+  })
+);
 app.use(express.static(buildLocation));
+
+const fileLocation = path.join(__dirname, "./uploads");
+// console.log(uploadLocation);
+
+app.get("/getFileList", (req, res) => {
+  // get all the files inside fileLocation
+  fs.readdir(fileLocation, (err, files) => {
+    if (err) {
+      res.status(500).send(new Error("Unable to scan directory: " + err));
+      return console.log("Unable to scan directory: " + err);
+    }
+    // get only .txt files
+    const fls = files.filter((file) => {
+      return path.extname(file).toLowerCase() === ".txt";
+    });
+    // create file objects to use in Vue Component
+    var fileList = fls.map(obj => ({
+      name: obj,
+      size: ((fs.statSync(path.join(fileLocation, obj)).size) / 1000).toFixed(2),
+      type: "text/plain",
+      status: ""
+    }));
+    
+    // send array of file objects to Vue Component
+    res.send(fileList);
+  });
+});
 
 // MAKE FORM INSIDE VUE COMPONENT WITH form(action="/restart")
 // HANDLE "/restart" route
-
 // handle POST request on /restart for button click
-app.post("/restart", function(req, res) {
+app.post("/restart", (req, res) => {
   if (req.body.constructor === Object && Object.keys(req.body).length === 0)
     return;
 
@@ -60,8 +93,8 @@ app.post("/restart", function(req, res) {
           console.error(`exec error: ${err}`);
           reject(err);
         } else {
-        //   console.log(`stdout: ${stdout}`);
-        //   console.error(`stderr: ${stderr}`);
+          //   console.log(`stdout: ${stdout}`);
+          //   console.error(`stderr: ${stderr}`);
           resolve({ stdout, stderr });
         }
       });
@@ -80,13 +113,13 @@ app.post("/restart", function(req, res) {
   res.send("Hello !");
 });
 
-app.post("/dhcpIP", function (req, res) {
+app.post("/dhcpIP", function(req, res) {
   // check if request body is empty
   if (req.body.constructor === Object && Object.keys(req.body).length === 0) {
     errors.push("Inputs are empty");
     return res.sendStatus(500);
   }
-    
+
   let fileText = req.body;
   console.log("fileText: ");
   console.log(fileText);
@@ -95,10 +128,10 @@ app.post("/dhcpIP", function (req, res) {
   let errors = [];
 
   // open file
-  const networkFile = fs.openSync(path.join(__dirname + '/test.txt'), "w+");
+  const networkFile = fs.openSync(path.join(__dirname + "/test.txt"), "w+");
   // lock file
-  flock(networkFile, 'ex', (err) => {
-    if(err) {
+  flock(networkFile, "ex", (err) => {
+    if (err) {
       errors.push("Could not lock file.");
       return console.log("Could not lock file.");
     }
@@ -106,18 +139,18 @@ app.post("/dhcpIP", function (req, res) {
     console.log("File is locked.");
   });
   // write in file
-  let stream = fs.createWriteStream(path.join(__dirname + '/test.txt'));
-  let chunk = ssid + '\n' + pass;
+  let stream = fs.createWriteStream(path.join(__dirname + "/test.txt"));
+  let chunk = ssid + "\n" + pass;
   stream.write(chunk, (err) => {
-    if(err) {
+    if (err) {
       errors.push("Could not write to file.");
       return console.log("Could not write to file.");
     }
   });
   stream.end();
   // unlock file
-  flock(networkFile, 'un', (err) => {
-    if(err) {
+  flock(networkFile, "un", (err) => {
+    if (err) {
       errors.push("Could not unlock file.");
       return console.log("Could not unlock file.");
     }
@@ -125,24 +158,32 @@ app.post("/dhcpIP", function (req, res) {
     console.log("File is unlocked.");
   });
   // close file
-  fs.close(networkFile, err => {
-    if(err) {
+  fs.close(networkFile, (err) => {
+    if (err) {
       errors.push("Could not close file.");
       return console.log("Could not close file.");
     }
   });
-  
-  if(errors.length != 0) {
+
+  if (errors.length != 0) {
     res.sendStatus(500);
-  } else
-  res.sendStatus(200);
+  } else res.sendStatus(200);
 });
 
 // HANDLE FILE UPLOAD
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "./uploads/");
+  },
+  filename: function(req, file, cb) {
+    cb(null, file.originalname);
+  },
+});
+
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["text/plain"];
 
-  if(!allowedTypes.includes(file.mimetype)) {
+  if (!allowedTypes.includes(file.mimetype)) {
     const error = new Error("Wrong file type");
     error.code = "LIMIT_FILE_TYPES";
     return cb(error, false);
@@ -151,20 +192,17 @@ const fileFilter = (req, file, cb) => {
 };
 
 const MAX_SIZE = 1000; // 1kb
+
 const upload = multer({
-  dest: './uploads/',
+  storage: storage,
   fileFilter,
   limits: {
-    fileSize: MAX_SIZE
-  }
+    fileSize: MAX_SIZE,
+  },
 });
 
-// app.post('/files', upload.single('file'), (req, res) => {
-//   res.json({ file: req.file });
-// });
-
 // 'files' name comes from formData.append('files', file); that is inside the Vue component
-app.post('/files', upload.array('files'), (req, res) => {
+app.post("/files", upload.array("files"), (req, res) => {
   res.json({ files: req.files });
 });
 
@@ -179,12 +217,14 @@ app.use(function(req, res, next) {
 
 // error handler
 app.use(function(err, req, res) {
-  if(err.code === "LIMIT_FILE_TYPES") {
+  if (err.code === "LIMIT_FILE_TYPES") {
     res.status(422).json({ error: "Only text files are allowed" });
     return;
   }
-  if(err.code === "LIMIT_FILE_SIZE") {
-    res.status(422).json({ error: `File too large. Max size is ${MAX_SIZE/1000}kb`});
+  if (err.code === "LIMIT_FILE_SIZE") {
+    res
+      .status(422)
+      .json({ error: `File too large. Max size is ${MAX_SIZE / 1000}kb` });
     return;
   }
   // set locals, only providing error in development
