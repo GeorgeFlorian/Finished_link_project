@@ -49,6 +49,14 @@ body {
   font-family: "Montserrat", sans-serif;
 }
 
+#app {
+  width: 100vw;
+  max-width: 100%;
+  min-height: 100%;
+  min-height: 100vh;
+  z-index: -100;
+}
+
 ::-webkit-scrollbar-track {
   box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
 }
@@ -110,18 +118,16 @@ a.router-link-active {
 
 /* START - Section */
 section {
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-  height: auto;
-  width: 80%;
-  max-width: 1000px;
   min-width: 675px;
+  max-width: 1000px;
+  width: 80%;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   margin-top: 75px;
+  height: auto;
   padding: 1em;
   border-radius: 8px;
 }

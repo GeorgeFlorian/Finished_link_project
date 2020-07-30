@@ -1,5 +1,14 @@
 <template>
   <section>
+    <div
+      @drop.prevent="drop"
+      @dragover.prevent
+      @dragenter.prevent="dragEnter"
+      @dragleave.prevent="dragLeave"
+      :class="`drop-zone ${dragging ? 'dragging' : ''} ${dragging ? 'inFront' : 'behind'}`"
+    >
+      <span>Drag and drop files here</span>
+    </div>
     <div class="top_container">
       <div class="mid_container">
         <div class="title">
@@ -8,102 +17,135 @@
             <span>Manager</span>
           </h1>
         </div>
-        <form @submit.prevent="sendFiles" method="POST" enctype="multipart/form-data">
-          <!-- TODO: File Manager Component -->
-          <div class="file-manager-container">
-            <div class="file-line header">
-              <div class="file-name">File name:</div>
-              <div class="file-size">Size:</div>
-              <div class="action-buttons">Actions:</div>
-            </div>
-            <div
-              :class="`file-line ${file.status ? 'wrong-file' : ''}`"
-              v-for="(file, index) in currentFiles"
-              :key="index"
+
+        <!-- TODO: File Manager Component -->
+        <div v-cloak class="file-manager">
+          <div class="file-line header">
+            <div class="file-name">File name:</div>
+            <div class="file-size">Size:</div>
+            <div class="action-buttons">Actions:</div>
+          </div>
+
+          <draggable
+            class="file-manager draggable"
+            v-model="currentFiles"
+            ghost-class="ghost"
+            @end="onEnd"
+          >
+            <transition-group
+              class="file-manager transitionGroup"
+              type="transition"
+              name="flip-list"
             >
-              <!-- left  -->
-              <div class="file-name">
-                {{ file.name }}
-                <span v-if="file.status">&nbsp;- {{ file.status }}</span>
+              <div
+                :class="`sortable file-line ${file.status ? 'wrong-file' : ''}`"
+                v-for="(file, index) in currentFiles"
+                :key="file.name"
+                
+                @mousedown="mouseDown"
+                @dragend="mouseUp"
+                @mouseup="mouseUp"
+              >
+                <!-- left  -->
+                <div class="file-name">
+                  {{ file.name }}
+                  <span v-if="file.status">
+                    <br />
+                    {{ file.status }}
+                  </span>
+                </div>
+                <!-- middle  -->
+                <div class="file-size">{{ file.size }} kb</div>
+                <!-- right -->
+                <div class="action-buttons">
+                  <span @click.prevent>
+                    <i class="far fa-edit"></i>
+                  </span>
+                  <span @click.prevent="deleteFile(index)">
+                    <i class="fa fa-trash" aria-hidden="true"></i>
+                  </span>
+                </div>
               </div>
-              <!-- middle  -->
-              <div class="file-size">
-                {{ file.size }} kb
-                <span v-if="file.status">&nbsp;- {{ file.status }}</span>
-              </div>
-              <!-- right -->
-              <div class="action-buttons">
-                <span>
-                  <i class="far fa-edit"></i>
-                </span>
-                <span @click.prevent="currentFiles.splice(index, 1)">
-                  <i class="fa fa-trash" aria-hidden="true"></i>
-                </span>
-              </div>
-            </div>
-            <input multiple type="file" @change="selectFile()" ref="files_ref" class="input-field" />
-          </div>
-          <!-- <span v-if="uploading" class="progress-bar">
+            </transition-group>
+          </draggable>
+        </div>
+        <!-- <span v-if="uploading" class="progress-bar">
               <progress :value="progress" max="100">{{progress}}%</progress>
-          </span>-->
+        </span>-->
 
-          <div class="upload-message" v-if="message">
-            <div>{{ message }}</div>
-          </div>
-
-          <!-- <button class="button">Send</button> -->
-        </form>
+        <div class="upload-message" v-if="message">
+          <div>{{ message }}</div>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <script>
+import draggable from "vuedraggable";
 import axios from "axios";
 import _ from "lodash";
 
 export default {
   name: "FileManager",
+  components: {
+    draggable,
+  },
   data() {
     return {
-      currentFiles: [
-        {
-          name: "test1",
-          size: 1.52,
-          type: "text/plain",
-          status: "",
-        },
-        {
-          name: "test2",
-          size: 1.33,
-          type: "text/plain",
-          status: "",
-        },
-        {
-          name: "test3",
-          size: 1,
-          type: "text/plain",
-          status: "",
-        },
-        {
-          name: "test4",
-          size: 0.85,
-          type: "text/plain",
-          status: "",
-        },
-      ],
-      // currentFiles: [],
+      currentFiles: [],
       uploadFiles: [],
       progress: 0,
       message: "",
       uploading: false,
       error: false,
+      dragging: false,
+      oldIndex: "",
+      newIndex: "",
+      fileCount: 0,
+      drag_counter: 0,
+      inFront: true,
+      mouse_hold: false,
     };
   },
   mounted() {
-    // this.getFiles();
+    this.getFiles();
   },
   methods: {
+    mouseDown() {
+      this.mouse_hold = true;
+    },
+    mouseUp() {
+      this.mouse_hold = false;
+    },
+    dragEnter(event) {
+      if (this.mouse_hold) return;
+      event.preventDefault();
+      this.drag_counter++;
+      this.dragging = true;
+    },
+    dragLeave(event) {
+      if (this.mouse_hold) return;
+      event.preventDefault();
+      if (this.drag_counter > 0) this.drag_counter--;
+      if (this.drag_counter === 0) {
+        this.dragging = false;
+        this.inFront = false;
+      }
+    },
+    drop(event) {
+      if (this.mouse_hold) return;
+      event.preventDefault();
+      this.drag_counter = 0;
+      this.dragging = false;
+      this.inFront = false;
+      this.sendFiles(event);
+    },
+    onEnd(event) {
+      // console.log(event);
+      this.oldIndex = event.oldIndex;
+      this.newIndex = event.newIndex;
+    },
     // get file list from Express server
     getFiles() {
       axios
@@ -111,33 +153,36 @@ export default {
         .then((res) => {
           this.currentFiles = [];
           this.currentFiles = [...this.currentFiles, ...res.data];
-          console.log(this.currentFiles);
+          this.fileCount = this.currentFiles.length;
+          // console.log(this.currentFiles);
+          // console.log(this.fileCount);
         })
         .catch((err) => {
           console.error(err);
         });
     },
-    // select files
-    selectFile() {
+    addFile(e) {
       this.message = "";
       this.progress = 0;
-      const selectedFiles = this.$refs.files_ref.files;
-      // fill array with files that are going to be uploaded
-      this.uploadFiles = [...this.uploadFiles, ...selectedFiles];
-      // console.log(files);
-
+      this.dragging = false;
+      let droppedFiles = e.dataTransfer.files;
+      //if no files were dropped, then return
+      if (!droppedFiles) return;
       // make an array of file objects from selectedFiles
       // append to currentFiles array
       // used for rendering on client side
       this.currentFiles = [
         ...this.currentFiles,
-        ..._.map(selectedFiles, (file) => ({
+        ..._.map(droppedFiles, (file) => ({
+          id: this.fileCount++,
           name: file.name,
           size: file.size,
           type: file.type,
           status: this.validate(file),
         })),
       ];
+      // fill array with files that are going to be uploaded
+      this.uploadFiles = [...this.uploadFiles, ...droppedFiles];
     },
     // validate files
     validate(file) {
@@ -154,27 +199,37 @@ export default {
 
       return ""; // empty string = false
     },
+    deleteFile(index) {
+      this.currentFiles.splice(index, 1);
+      this.fileCount--;
+      // axios.
+    },
     // send file object to server
-    async sendFiles() {
+    async sendFiles(event) {
+      this.addFile(event);
       const formData = new FormData();
-      var file_count = 0;
+      var uploaded_files_count = 0;
       // lodash forEach
       // send only validated (correct) files
 
       _.forEach(this.uploadFiles, (file) => {
         if (this.validate(file) === "") {
           formData.append("files", file);
-          file_count++;
+          uploaded_files_count++;
         }
       });
 
       try {
         this.uploading = true;
         await axios.post("/files", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
           onUploadProgress: (event) =>
             (this.progress = Math.round((event.loaded * 100) / event.total)),
         });
-        if (file_count) this.message = "The files have been uploaded.";
+        if (uploaded_files_count)
+          this.message = "The files have been uploaded.";
         else this.message = "No file has been uploaded.";
 
         this.uploadFiles = [];
@@ -184,6 +239,7 @@ export default {
         this.message = err.response.data.error;
         this.error = true;
         this.uploading = false;
+        this.getFiles();
       }
     },
   },
@@ -191,33 +247,46 @@ export default {
 </script>
 
 <style scoped>
-.wrong-file {
-  background: lightcoral;
-}
-
 .top_container {
   height: auto;
+  z-index: 10;
 }
 
-form {
+.file-manager {
   padding: 0.5em;
-}
-
-.file-manager-container {
   position: relative;
   width: 100%;
   height: 100%;
-  margin-bottom: 20px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+}
+.draggable,
+.transitionGroup {
+  padding: 0;
+}
+
+.draggable {
+  margin-bottom: 20px;
+}
+
+.flip-list-move {
+  transition: transform 0.5s;
+}
+
+.ghost {
+  font-weight: bold;
+  border-left: 4px solid #96ede5;
+  color: white;
 }
 
 .file-line {
   width: 100%;
   border-bottom: 2px solid #383c43;
-  margin: 1px 0;
   padding: 2px 10px;
   font-size: 1.2rem;
   display: flex;
@@ -245,15 +314,22 @@ form {
   background: rgba(0, 0, 0, 0);
 }
 
+.file-name {
+  width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .file-size {
   min-width: 90px;
   text-align: right;
 }
 .header .file-size {
-  margin-right:30px;
+  margin-left: 30px;
 }
 
 .action-buttons span {
+  pointer-events: auto;
   font-size: 1.4rem;
   transition: color 0.15s ease-in-out;
 }
@@ -267,12 +343,43 @@ form {
   cursor: pointer;
 }
 
-.input-field {
-  opacity: 0;
-  /* position: absolute; */
+.upload-message {
+  position: relative;
+  margin: 0 auto;
+}
+.wrong-file {
+  background-color: #7c3a42;
 }
 
-.upload-message {
-  margin: 1em;
+.wrong-file:hover {
+  background-color: #af535e;
+}
+
+.drop-zone {
+  width: 100vw;
+  max-width: 100%;
+  height: 100vh;
+  min-height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+}
+
+.dragging {
+  background: pink;
+  opacity: 0.5;
+}
+
+.dragging * {
+  pointer-events: none;
+}
+
+.inFront {
+  z-index: 1000;
+}
+
+.behind {
+  z-index: 1;
 }
 </style>

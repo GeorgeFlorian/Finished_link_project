@@ -59,16 +59,21 @@ app.get("/getFileList", (req, res) => {
     }
     // get only .txt files
     const fls = files.filter((file) => {
-      return path.extname(file).toLowerCase() === ".txt";
+      return (
+        path.extname(file).toLowerCase() === ".txt" &&
+        fs.statSync(path.join(fileLocation, file)).size < MAX_SIZE
+      );
     });
     // create file objects to use in Vue Component
-    var fileList = fls.map(obj => ({
+    let i = 0;
+    var fileList = fls.map((obj) => ({
+      id: i++,
       name: obj,
-      size: ((fs.statSync(path.join(fileLocation, obj)).size) / 1000).toFixed(2),
+      size: (fs.statSync(path.join(fileLocation, obj)).size / 1000).toFixed(2),
       type: "text/plain",
-      status: ""
+      status: "",
     }));
-    
+
     // send array of file objects to Vue Component
     res.send(fileList);
   });

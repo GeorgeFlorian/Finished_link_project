@@ -1,12 +1,8 @@
 <template>
   <footer>
-    <span class="version">
-      <a
-        href="#"
-        title="Go to Display documentation"
-      >Display Controller</a>
-      - Version: 1.5
-    </span>
+    <!-- <span class="version">
+      <a href="#" title="Go to Display documentation">Display Controller</a>- Version: 1.5
+    </span> -->
     <span class="copyright">
       <a href="https://github.com/GeorgeFlorian" target="_blank" title="Go to Metrici Website">SGF</a>
       © 2020 - All Rights Reserved.
@@ -34,6 +30,7 @@ footer {
   user-select: none;
   -moz-user-select: none;
   -webkit-user-select: none;
+  z-index:-1000;
 }
 
 .version a {
