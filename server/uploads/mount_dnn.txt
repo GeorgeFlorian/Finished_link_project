@@ -1,3 +1,0 @@
-sshfs -p 9011 metrici@home.24host.ro:/8tb /home/george/dnn
-pass: metrici!@admin12
-sudo umount /home/george/dnn
