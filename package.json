@@ -29,6 +29,7 @@
     "shelljs": "^0.8.4",
     "sse-channel": "^3.1.1",
     "vue": "^2.6.11",
+    "vue-js-modal": "^2.0.0-rc.6",
     "vue-router": "^3.2.0",
     "vuedraggable": "^2.24.0"
   },

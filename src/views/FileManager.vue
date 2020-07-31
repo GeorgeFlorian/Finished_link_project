@@ -5,7 +5,11 @@
       @dragover.prevent
       @dragenter.prevent="dragEnter"
       @dragleave.prevent="dragLeave"
-      :class="`drop-zone ${dragging ? 'dragging' : ''} ${dragging ? 'inFront' : 'behind'}`"
+      :class="
+        `drop-zone ${dragging ? 'dragging' : ''} ${
+          dragging ? 'inFront' : 'behind'
+        }`
+      "
     >
       <span>Drag and drop files here</span>
     </div>
@@ -41,7 +45,6 @@
                 :class="`sortable file-line ${file.status ? 'wrong-file' : ''}`"
                 v-for="(file, index) in currentFiles"
                 :key="file.name"
-                
                 @mousedown="mouseDown"
                 @dragend="mouseUp"
                 @mouseup="mouseUp"
@@ -58,9 +61,10 @@
                 <div class="file-size">{{ file.size }} kb</div>
                 <!-- right -->
                 <div class="action-buttons">
-                  <span @click.prevent>
+                  <span @click="processFile(file.id)">
                     <i class="far fa-edit"></i>
                   </span>
+
                   <span @click.prevent="deleteFile(index)">
                     <i class="fa fa-trash" aria-hidden="true"></i>
                   </span>
@@ -82,9 +86,14 @@
 </template>
 
 <script>
+import Vue from "vue";
 import draggable from "vuedraggable";
 import axios from "axios";
 import _ from "lodash";
+import VModal from "vue-js-modal";
+import Editor from "../components/Editor";
+
+Vue.use(VModal, { dialog: true });
 
 export default {
   name: "FileManager",
@@ -106,12 +115,20 @@ export default {
       drag_counter: 0,
       inFront: true,
       mouse_hold: false,
+      fileText: '',
     };
   },
   mounted() {
     this.getFiles();
   },
   methods: {
+    show() {
+      this.$modal.show(
+        Editor,
+        { fileText: this.fileText },
+        { draggable: true }
+      );
+    },
     mouseDown() {
       this.mouse_hold = true;
     },
@@ -203,6 +220,35 @@ export default {
       this.currentFiles.splice(index, 1);
       this.fileCount--;
       // axios.
+    },
+    readFileAsync(file) {
+      return new Promise((resolve, reject) => {
+        let reader = new FileReader();
+
+        reader.onload = () => {
+          resolve(reader.result);
+        };
+
+        reader.onerror = reject;
+
+        reader.readAsText(file, "UTF-8");
+      });
+    },
+    async processFile(id) {
+      try {
+        let content = await this.readFileAsync(this.uploadFiles[id]);
+        this.fileText = '';
+        this.fileText = content;
+        // const lines = content.split(/[\r\n]+/g);
+        // lines.forEach((line, index) => {
+        //   // console.log(line);
+        //   this.fileText = [...this.fileText, line];
+        //   console.log(this.fileText[index]);
+        // });
+        this.show();
+      } catch (err) {
+        console.log(err);
+      }
     },
     // send file object to server
     async sendFiles(event) {
