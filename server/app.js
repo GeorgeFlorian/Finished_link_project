@@ -1,18 +1,23 @@
 require("dotenv").config();
 const express = require("express");
+// librarie pentru upload de fisiere
 const multer = require("multer");
+// Rezolva probleme de access in Single Page Applications
 const history = require("connect-history-api-fallback");
 const path = require("path");
+// librarie care ne da acees la metode legate de sistemul de fisiere
 const fs = require("fs");
+// utilizam flock pentru a bloca fisiere pentru a evita race-condition
 const { flock } = require("fs-ext");
-
-const debug = require("debug")("poi:server");
-const favicon = require("serve-favicon");
-// generating logs
-const logger = require("morgan");
 const bodyParser = require("body-parser");
 const http = require("http");
 
+const favicon = require("serve-favicon");
+// generating logs
+const debug = require("debug")("poi:server");
+const logger = require("morgan");
+
+// modulul de exec ne permite sa emitem comenzi in shell
 const { exec } = require("child_process");
 
 const app = express();
@@ -219,6 +224,16 @@ app.use(function(req, res, next) {
   err.status = 404;
   next(err);
 });
+
+app.post("/updateFiles", (req, res) => {
+  let errors = [];
+  // check if request body is empty
+  if (req.body.constructor === Object && Object.keys(req.body).length === 0) {
+    errors.push("Request is empty");
+    return res.sendStatus(500);
+  }
+
+})
 
 // error handler
 app.use(function(err, req, res) {

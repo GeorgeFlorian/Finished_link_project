@@ -103,7 +103,7 @@ export default {
   data() {
     return {
       currentFiles: [],
-      uploadFiles: [],
+      uploadFilesArray: [],
       progress: 0,
       message: "",
       uploading: false,
@@ -115,18 +115,40 @@ export default {
       drag_counter: 0,
       inFront: true,
       mouse_hold: false,
-      fileText: '',
+      fileText: "",
     };
   },
   mounted() {
     this.getFiles();
   },
   methods: {
-    show() {
+    updateFile(content) {
+      axios
+        .post("/updateFile", content)
+        .then((res) => {
+          console.log(res);
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    },
+    openModal(id) {
       this.$modal.show(
         Editor,
-        { fileText: this.fileText },
-        { draggable: true }
+        {
+          fileText: this.fileText,
+          fileName: this.currentFiles[id].name
+        },
+        {},
+        {
+          "custom-event": (text, name) => {
+            this.fileText = text;
+            console.log("Inside parent: ");
+            console.log(this.fileText);
+            console.log("File name: " + name);
+            // this.updateFile(this.fileText);
+          },
+        }
       );
     },
     mouseDown() {
@@ -156,7 +178,7 @@ export default {
       this.drag_counter = 0;
       this.dragging = false;
       this.inFront = false;
-      this.sendFiles(event);
+      this.uploadFiles(event);
     },
     onEnd(event) {
       // console.log(event);
@@ -177,6 +199,40 @@ export default {
         .catch((err) => {
           console.error(err);
         });
+    },
+    deleteFile(index) {
+      this.currentFiles.splice(index, 1);
+      this.fileCount--;
+      // axios.
+    },
+    readFileAsync(file) {
+      return new Promise((resolve, reject) => {
+        let reader = new FileReader();
+
+        reader.onload = () => {
+          resolve(reader.result);
+        };
+
+        reader.onerror = reject;
+
+        reader.readAsText(file, "UTF-8");
+      });
+    },
+    async processFile(id) {
+      try {
+        let content = await this.readFileAsync(this.uploadFilesArray[id]);
+        this.fileText = "";
+        this.fileText = content;
+        // const lines = content.split(/[\r\n]+/g);
+        // lines.forEach((line, index) => {
+        //   // console.log(line);
+        //   this.fileText = [...this.fileText, line];
+        //   console.log(this.fileText[index]);
+        // });
+        this.openModal(id);
+      } catch (err) {
+        console.log(err);
+      }
     },
     addFile(e) {
       this.message = "";
@@ -199,7 +255,7 @@ export default {
         })),
       ];
       // fill array with files that are going to be uploaded
-      this.uploadFiles = [...this.uploadFiles, ...droppedFiles];
+      this.uploadFilesArray = [...this.uploadFilesArray, ...droppedFiles];
     },
     // validate files
     validate(file) {
@@ -216,49 +272,15 @@ export default {
 
       return ""; // empty string = false
     },
-    deleteFile(index) {
-      this.currentFiles.splice(index, 1);
-      this.fileCount--;
-      // axios.
-    },
-    readFileAsync(file) {
-      return new Promise((resolve, reject) => {
-        let reader = new FileReader();
-
-        reader.onload = () => {
-          resolve(reader.result);
-        };
-
-        reader.onerror = reject;
-
-        reader.readAsText(file, "UTF-8");
-      });
-    },
-    async processFile(id) {
-      try {
-        let content = await this.readFileAsync(this.uploadFiles[id]);
-        this.fileText = '';
-        this.fileText = content;
-        // const lines = content.split(/[\r\n]+/g);
-        // lines.forEach((line, index) => {
-        //   // console.log(line);
-        //   this.fileText = [...this.fileText, line];
-        //   console.log(this.fileText[index]);
-        // });
-        this.show();
-      } catch (err) {
-        console.log(err);
-      }
-    },
     // send file object to server
-    async sendFiles(event) {
+    async uploadFiles(event) {
       this.addFile(event);
       const formData = new FormData();
       var uploaded_files_count = 0;
       // lodash forEach
       // send only validated (correct) files
 
-      _.forEach(this.uploadFiles, (file) => {
+      _.forEach(this.uploadFilesArray, (file) => {
         if (this.validate(file) === "") {
           formData.append("files", file);
           uploaded_files_count++;
@@ -278,7 +300,7 @@ export default {
           this.message = "The files have been uploaded.";
         else this.message = "No file has been uploaded.";
 
-        this.uploadFiles = [];
+        this.uploadFilesArray = [];
         this.uploading = false;
         this.getFiles();
       } catch (err) {
