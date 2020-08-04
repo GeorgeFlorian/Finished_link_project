@@ -19,9 +19,9 @@
               <br />
               <br />
               <input id="wifi" type="radio" name="connectionType" value="WiFi" />
-              <label for="wifi" @click="wifi= true; ethernet= true">WiFi</label>
+              <label for="wifi" @click="wifi= true; ethernet= true; message=''">WiFi</label>
               <input id="eth" type="radio" name="connectionType" value="Ethernet" />
-              <label for="eth" @click="wifi= false; ethernet= true">Ethernet</label>
+              <label for="eth" @click="wifi= false; ethernet= true; message=''">Ethernet</label>
             </div>
             <div id="wifiFields" v-if="wifi">
               <div class="input_row">
@@ -63,8 +63,8 @@
                   id="IP"
                   name="IP"
                   required
-                  v-model="ipAddress"
-                  @change="validIP"
+                  v-model.lazy="ipAddress"
+                  @change="validateAdressOnChange"
                 />
                 <label class="label_" for="IP">IP Address</label>
               </div>
@@ -77,6 +77,7 @@
                   name="Gateway"
                   required
                   v-model.lazy="gateway"
+                  @change="validateAdressOnChange"
                 />
                 <label class="label_" for="Gateway">Gateway</label>
               </div>
@@ -89,6 +90,7 @@
                   name="SubnetMask"
                   required
                   v-model.lazy="subnet"
+                  @change="validateAdressOnChange"
                 />
                 <label class="label_" for="SubnetMask">Subnet Mask</label>
               </div>
@@ -101,13 +103,14 @@
                   name="DNS"
                   required
                   v-model.lazy="dns"
+                  @change="validateAdressOnChange"
                 />
                 <label class="label_" for="DNS">DNS</label>
               </div>
             </div>
-            <input class="button" type="submit" value="Save Values" />
+            <input class="button" type="submit" value="Save Values" v-if="wifi || ethernet"/>
           </form>
-          <div class="message" v-if="message">{{ message }}</div>
+          <div class="correct" v-if="message">{{ message }}</div>
           <div class="errors" v-if="errors.length > 0">
             <div v-for="error in errors" :key="error.id">{{error}}</div>
           </div>
@@ -136,52 +139,26 @@ export default {
       subnet: "",
       dns: "",
       message: "",
-      dataSent: false,
       errors: [],
     };
-  },
-  watch: {
-    //   ipAddress(value) {
-    //     this.validateAdressOnChange(value, "IP");
-    //   },
-    gateway(value) {
-      this.validateAdressOnChange(value, "Gateway");
-    },
-    subnet(value) {
-      this.validateAdressOnChange(value, "SubnetMask");
-    },
-    dns(value) {
-      this.validateAdressOnChange(value, "DNS");
-    },
   },
   methods: {
     netmaskToCidr(netmask) {
       return netmask.split(".").reduce((c, o) => c - Math.log2(256 - +o), 32);
     },
-    validIP(event) {
+    validateAdressOnChange(event) {
       var ipformat = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
       let value = event.target.value;
       let inputName = event.target.name;
 
-      if (!value.match(ipformat)) {
+      if (value == "") {
         this.$el.querySelector(`#${inputName}`).classList.remove("correct");
-        this.$el.querySelector(`#${inputName}`).classList.add("wrong");
-        // this.$el.querySelector(`#${inputName}`).focus();
-        let error = `You have entered an invalid ${inputName} Address!`;
-        if (!this.errors.includes(error)) this.errors.push(error);
-      } else if (value != null) {
         this.$el.querySelector(`#${inputName}`).classList.remove("wrong");
-        this.$el.querySelector(`#${inputName}`).classList.add("correct");
-        var index = this.errors.indexOf(
+        let index = this.errors.indexOf(
           `You have entered an invalid ${inputName} Address!`
         );
         if (index > -1) this.errors.splice(index, 1);
-      }
-    },
-    validateAdressOnChange(value, inputName) {
-      var ipformat = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-
-      if (!value.match(ipformat)) {
+      } else if (value.match(ipformat) == null) {
         this.$el.querySelector(`#${inputName}`).classList.remove("correct");
         this.$el.querySelector(`#${inputName}`).classList.add("wrong");
         // this.$el.querySelector(`#${inputName}`).focus();
@@ -190,7 +167,7 @@ export default {
       } else if (value != null) {
         this.$el.querySelector(`#${inputName}`).classList.remove("wrong");
         this.$el.querySelector(`#${inputName}`).classList.add("correct");
-        var index = this.errors.indexOf(
+        let index = this.errors.indexOf(
           `You have entered an invalid ${inputName} Address!`
         );
         if (index > -1) this.errors.splice(index, 1);
@@ -204,7 +181,6 @@ export default {
       var dns = this.dns;
       if (ipaddr.match(ipformat) == null) {
         let err = "You have entered an invalid IP Address!";
-        console.log(err);
         if (!this.errors.includes(err)) this.errors.push(err);
       }
       if (gateway.match(ipformat) == null) {
@@ -247,25 +223,23 @@ export default {
           )
           .then((res) => {
             if (res.status == 200) {
-              this.dataSent = true;
               this.errors = [];
-              this.message = "Settings have been saved.";
+              this.message = "Static WiFi settings have been saved.";
               this.ssid = "";
               this.password = "";
               this.ipAddress = "";
               this.gateway = "";
               this.subnet = "";
               this.dns = "";
-              this.dataSent = false;
+              this.wifi = false;
+              this.ethernet = false;
             } else {
               this.errors.push("Something went wrong. Please try again");
-              this.dataSent = false;
             }
           })
           .catch((error) => {
             console.log(error);
             this.message = "";
-            this.dataSent = false;
           });
       }
     },
@@ -288,23 +262,21 @@ export default {
           )
           .then((res) => {
             if (res.status == 200) {
-              this.dataSent = true;
               this.errors = [];
-              this.message = "Settings have been saved.";
+              this.message = "Static Ethernet settings have been saved.";
               this.ipAddress = "";
               this.gateway = "";
               this.subnet = "";
               this.dns = "";
-              this.dataSent = false;
+              this.wifi = false;
+              this.ethernet = false;
             } else {
               this.errors.push("Something went wrong. Please try again");
-              this.dataSent = false;
             }
           })
           .catch((error) => {
             console.log(error);
             this.message = "";
-            this.dataSent = false;
           });
       }
     },
@@ -328,7 +300,6 @@ export default {
   width: 100%;
   flex-direction: column;
   align-items: center;
-  flex: 1;
 }
 #ethernetFields {
   width: 100%;
@@ -336,7 +307,7 @@ export default {
   align-items: center;
 }
 .input_radio {
-  margin-top: 20px;
+  margin: 20px 0;
   color: white;
   text-align: center;
 }
@@ -374,7 +345,7 @@ export default {
   font-weight: 700;
 }
 
-.message,
+.correct,
 .errors {
   text-align: center;
   font-size: 1.2em;

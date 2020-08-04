@@ -29,54 +29,60 @@
           <h1>Change Settings</h1>
         </div>
         <div class="inner_container">
-          <div class="input_row">
-            <input
-              class="input_text"
-              id="getURL"
-              type="url"
-              inputmode="url"
-              placeholder="Enter URL"
-              title="URL"
-              @input="changeUrl"
-            />
-            <label class="label_" for="getURL">URL Link</label>
-          </div>
-          <div class="input_row">
-            <input
-              class="input_text"
-              id="getURR"
-              inputmode="numeric"
-              title="Enter a number of seconds between 1 and 99"
-              type="text"
-              pattern="([0-9]{1,2})"
-              oninvalid="this.setCustomValidity('Please enter a number between 1 and 99')"
-              onchange="try{setCustomValidity('')}catch(e){}"
-              oninput="setCustomValidity(' ')"
-              maxlength="2"
-              placeholder="Enter URL Refresh Interval in seconds"
-              @input="changeUrr"
-            />
-            <label class="label_" for="getURR">URL Refresh Interval (s)</label>
-          </div>
-          <div class="input_row">
-            <input
-              class="input_text"
-              id="getBrightness"
-              inputmode="numeric"
-              type="text"
-              maxlength="2"
-              pattern="([0-9]{1,2})"
-              oninvalid="this.setCustomValidity('Please enter a number between 2 and 99')"
-              onchange="try{setCustomValidity('')}catch(e){}"
-              oninput="setCustomValidity(' ')"
-              placeholder="Enter brightness (2-99)"
-              title="Enter a Brightness value between 2 and 99"
-              @input="changeBrightness"
-            />
-            <label class="label_" for="getBrightness">Brightness (&#37;)</label>
-          </div>
-          <!-- <input class="button" type="submit" value="Save All Values" @click="saveSettings"/> -->
-          <button class="button" @click="saveSettings">Save all Values</button>
+          <form method="post" @submit.prevent="saveSettings">
+            <div class="input_row">
+              <input
+                class="input_text"
+                id="getURL"
+                type="url"
+                inputmode="url"
+                placeholder="Enter URL"
+                title="URL"
+                v-model.lazy="newSettings.url"
+                @input="changeUrl"
+              />
+              <label class="label_" for="getURL">URL Link</label>
+            </div>
+            <div class="input_row">
+              <input
+                class="input_text"
+                id="getURR"
+                inputmode="numeric"
+                title="Enter a number of seconds between 1 and 99"
+                type="text"
+                pattern="([0-9]{1,2})"
+                oninvalid="this.setCustomValidity('Please enter a number between 1 and 99')"
+                onchange="try{setCustomValidity('')}catch(e){}"
+                oninput="setCustomValidity(' ')"
+                maxlength="2"
+                placeholder="Enter URL Refresh Interval in seconds"
+                v-model.lazy="newSettings.urr"
+                @input="changeUrr"
+              />
+              <label class="label_" for="getURR">URL Refresh Interval (s)</label>
+            </div>
+            <div class="input_row">
+              <input
+                class="input_text"
+                id="getBrightness"
+                inputmode="numeric"
+                type="text"
+                maxlength="2"
+                pattern="([0-9]{1,2})"
+                oninvalid="this.setCustomValidity('Please enter a number between 2 and 99')"
+                onchange="try{setCustomValidity('')}catch(e){}"
+                oninput="setCustomValidity(' ')"
+                placeholder="Enter brightness (2-99)"
+                title="Enter a Brightness value between 2 and 99"
+                v-model.lazy="newSettings.brightness"
+                @input="changeBrightness"
+              />
+              <label class="label_" for="getBrightness">Brightness (&#37;)</label>
+            </div>
+            <button type="submit" class="button">Save all Values</button>
+          </form>
+          <div class="correct" v-if="message">{{ message }}</div>
+          <div class="wrong" v-if="wrong">{{ wrong }}</div>
         </div>
       </div>
     </div>
@@ -108,6 +114,8 @@ export default {
         brightness: "",
       },
       ip: location.host,
+      wrong: '',
+      message: '',
     };
   },
   mounted() {
@@ -137,12 +145,43 @@ export default {
       this.newSettings.brightness = e.target.value;
     }, 500),
     saveSettings() {
+      var counter = 3;
+      if (this.newSettings.url === "") {
+        this.newSettings.url = this.oldSettings.url;
+        counter--;
+      }
+      if (this.newSettings.urr === "") {
+        this.newSettings.urr = this.oldSettings.urr;
+        counter--;
+      }
+      if (this.newSettings.brightness === "") {
+        this.newSettings.brightness = this.oldSettings.brightness;
+        counter--;
+      }
+
       axios
         .post("/changeSettings", this.newSettings)
         .then((res) => {
+          // resetam valorile din input
+          this.newSettings.url = "";
+          this.newSettings.urr = "";
+          this.newSettings.brightness = "";
           console.log("Save settings:", res.status);
-          // this.getDisplaySettings();
-          // Settings were saved
+          if (counter == 0) {
+            this.wrong = "Inputs are empty";
+            this.message = '';
+          }
+          else if (counter == 1) {
+            this.message = "Value was saved.";
+            this.wrong = '';
+          }
+          else {
+            this.message = "Values were saved.";
+            this.wrong = '';
+          }
+
+          // updatam valorile din interfata
+          this.getDisplaySettings();
         })
         .catch((error) => {
           console.error(error);
@@ -154,10 +193,33 @@ export default {
 
 <style scoped>
 .left_container p {
-  padding: 1em;
+  padding: 1.3em 0.4em;
+}
+
+.left_container .inner_container {
+  justify-content: flex-start;
 }
 
 .right_container .inner_container {
   align-items: center;
+}
+
+form {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.correct,
+.wrong {
+  text-align: center;
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #14e16d;
+  padding: 0.5em;
+  margin: 0.5em;
+}
+
+.wrong {
+  color: #e11422;
 }
 </style>

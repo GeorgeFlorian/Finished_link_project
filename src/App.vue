@@ -41,9 +41,8 @@ body {
   width: 100vw;
   max-width: 100%;
   position: relative;
-  min-height: 100%;
+  height: 100%;
   min-height: 100vh;
-  margin: 0 auto;
   background-color: #1d1f23;
   color: rgba(255, 255, 255, 0.85);
   font-family: "Montserrat", sans-serif;
@@ -154,7 +153,7 @@ section h1 {
 }
 
 .top_container {
-  height: 300px;
+  height: 370px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -181,7 +180,7 @@ section h1 {
   padding: 0 0.5em;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  justify-content: center;
 }
 
 .inner_container span {
@@ -199,7 +198,7 @@ section h1 {
 
 .input_row {
   width: 100%;
-  height: 60px;
+  height: 70px;
   bottom: 0;
   position: relative;
 }
@@ -238,7 +237,7 @@ section h1 {
 }
 
 .input_text:focus + .label_ {
-  bottom: 60%;
+  bottom: 50%;
   line-height: 1;
   opacity: 1;
   margin-left: 10px;

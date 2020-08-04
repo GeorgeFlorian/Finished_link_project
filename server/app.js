@@ -30,7 +30,7 @@ const bodyParser = require("body-parser");
 const http = require("http");
 
 const favicon = require("serve-favicon");
-// generating logs
+// generating debug logs
 const debug = require("debug")("poi:server");
 const logger = require("morgan");
 
@@ -191,7 +191,49 @@ app.post("/restart", (req, res) => {
 
   shellExec(shell_command);
 
-  res.send("Hello !");
+  res.sendStatus(200);
+});
+
+app.post("/changeSettings", (req, res) => {
+  // verificam daca reqest-ul este gol
+  if (req.body.constructor === Object && Object.keys(req.body).length === 0) {
+    return res.sendStatus(500);
+  }
+  let newSettings = req.body;
+  console.log(newSettings);
+
+  var write_to_config = "";
+  for (let prop in newSettings) {
+    write_to_config += newSettings[prop] + "\n";
+  }
+
+  // deschidem fisierul lock
+  const config_lock = fs.openSync(config_lock_path, "w+");
+  // blocam fisierul lock
+  flock(config_lock, "ex", (err) => {
+    if (err) return console.error("Could not lock config_lock file.");
+    // fisierul este blocat
+    console.log("config_lock is locked.");
+    // folosim fs.writeFile() pentru a deschide, scrie si inchide fisierul text
+    fs.writeFile(
+      path.join(configFilesLocation, "/configuration.txt"),
+      write_to_config,
+      (error) => {
+        if (error) return console.error(error);
+        console.log("configuration.txt was saved");
+        // deblocam fisierul lock
+        flock(config_lock, "un", (error) => {
+          if (error) return console.error(error);
+          // fisier deblocat
+          console.log("config_lock is unlocked.");
+          // inchidem fisierul lock
+          fs.closeSync(config_lock);
+        });
+      }
+    );
+  });
+
+  res.sendStatus(200);
 });
 
 app.post("/dhcpWifi", (req, res) => {
@@ -278,7 +320,7 @@ app.post("/dhcpEth", (req, res) => {
   if (req.body.constructor === Object && Object.keys(req.body).length === 0) {
     return res.status(500).send("ERROR: Inputs are empty !");
   }
-  
+
   const write_to_dhcpcd = `interface wlan0
 noipv4
 noipv6
@@ -547,78 +589,120 @@ const upload = multer({
   },
 });
 
-// 'files' name comes from formData.append('files', file); that is inside the Vue component
+// denumirea 'files' vine din componenta FileManager de la formData.append('files', file);
 app.post("/files", upload.array("files"), (req, res) => {
   res.json({ files: req.files });
 });
 
 app.post("/readFileContent", (req, res) => {
   let fileContent = "";
-  let fileName = req.body.fileName;
-  fs.readFile(
-    path.join(configFilesLocation, fileName),
-    "utf8",
-    (error, data) => {
-      if (error) throw error;
-      console.log("File name:", fileName);
-      fileContent = data;
-      console.log("Old Content:");
-      console.log(fileContent);
-      res.status(200).send(fileContent);
-    }
-  );
+  const fileName = req.body.fileName;
+  const fileLock = fileName.replace("txt", "lock");
+  //deschidem fisierul lock
+  const file_lock = fs.openSync(path.join(configFilesLocation, fileLock), "w+");
+
+  // blocam fisierul lock
+  flock(file_lock, "ex", (err) => {
+    if (err) return console.error(`Could not lock ${fileLock} file.`);
+    // fisierul este blocat
+    console.log(`${fileLock} is locked.`);
+    // citim fisierul text
+    // fs.readFile() deschide, citeste si inchide fisierul text
+    fs.readFile(
+      path.join(configFilesLocation, fileName),
+      "utf8",
+      (error, data) => {
+        if (error) throw error;
+        fileContent = data;
+        // console.log("File name:", fileName);
+        // console.log("Old Content:");
+        // console.log(fileContent);
+        res.status(200).send(fileContent);
+
+        // deblocam fisierul
+        flock(file_lock, "un", (error) => {
+          if (error) return console.error(error);
+          // fisier deblocat
+          console.log(`${fileLock} is unlocked.`);
+          // inchidem fisierul lock
+          fs.closeSync(file_lock);
+        });
+      }
+    );
+  });
 });
 
 app.post("/updateFile", (req, res) => {
-  // check if request body is empty
+  // verificam daca reqest-ul este gol
   if (req.body.constructor === Object && Object.keys(req.body).length === 0) {
     return res.sendStatus(500);
   }
   let newFileContent = req.body.content;
-  let fileName = req.body.fileName;
-  console.log("Server file name: " + fileName);
-  console.log("newFileContent: ");
-  console.log(newFileContent);
-  fs.writeFile(
-    path.join(configFilesLocation, fileName),
-    newFileContent,
-    (error) => {
-      if (error) return console.error(error);
-      console.log("The file was saved");
-      res.sendStatus(200);
-    }
-  );
-});
-
-app.post("/deleteFile", (req, res) => {
   const fileName = req.body.fileName;
-  console.log(fileName);
-  fs.unlink(path.join(configFilesLocation, fileName), (error) => {
-    if (error) {
-      console.error(error);
-      return;
-    }
-    res.sendStatus(200);
+  const fileLock = fileName.replace("txt", "lock");
+  //deschidem fisierul lock
+  const file_lock = fs.openSync(path.join(configFilesLocation, fileLock), "w+");
+
+  // console.log("Server file name: " + fileName);
+  // console.log("newFileContent: ");
+  // console.log(newFileContent);
+  // blocam fisierul lock
+  flock(file_lock, "ex", (err) => {
+    if (err) return console.error(`Could not lock ${fileLock} file.`);
+    // fisierul este blocat
+    console.log(`${fileLock} is locked.`);
+    // folosim fs.writeFile() pentru a deschide, scrie si inchide fisierul text
+    fs.writeFile(
+      path.join(configFilesLocation, fileName),
+      newFileContent,
+      (error) => {
+        if (error) return console.error(error);
+        console.log("The file was saved");
+        res.sendStatus(200);
+        // deblocam fisierul lock
+        flock(file_lock, "un", (error) => {
+          if (error) return console.error(error);
+          // fisier deblocat
+          console.log(`${fileLock} is unlocked.`);
+          // inchidem fisierul lock
+          fs.closeSync(file_lock);
+        });
+      }
+    );
   });
 });
 
-app.post("/changeSettings", (req, res) => {
-  // check if request body is empty
+app.post("/deleteFile", (req, res) => {
+  // verificam daca reqest-ul este gol
   if (req.body.constructor === Object && Object.keys(req.body).length === 0) {
     return res.sendStatus(500);
   }
-  let newSettings = req.body;
-  console.log(newSettings);
+  const fileName = req.body.fileName;
+  const fileLock = fileName.replace("txt", "lock");
+  //deschidem fisierul lock
+  const file_lock = fs.openSync(path.join(configFilesLocation, fileLock), "w+");
+  console.log(fileLock);
 
-  fs.writeFile(
-    path.join(configFilesLocation, "/configuration.txt"),
-    newSettings,
-    (error) => {
+  // blocam fisierul lock
+  flock(file_lock, "ex", (err) => {
+    if (err) return console.error(`Could not lock ${fileLock} file.`);
+    // fisierul este blocat
+    console.log(`${fileLock} is locked.`);
+    // stergem fisierul ales
+    fs.unlink(path.join(configFilesLocation, fileName), (error) => {
       if (error) return console.error(error);
-      console.log("The file was saved");
+      console.log(`${fileName} was deleted`);
       res.sendStatus(200);
-    }
-  );
+      // deblocam fisierul
+      flock(file_lock, "un", (error) => {
+        if (error) return console.error(error);
+        // fisier deblocat
+        console.log(`${fileLock} is unlocked.`);
+        // inchidem fisierul lock
+        fs.closeSync(file_lock);
+      });
+    });
+  });
 });
 
 // catch 404 and forward to error handler
