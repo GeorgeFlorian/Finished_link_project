@@ -18,6 +18,9 @@ const routes = [
   {
     path: "/dhcpIP",
     name: "DHCP",
+    // route level code-splitting
+    // this generates a separate chunk (about.[hash].js) for this route
+    // which is lazy-loaded when the route is visited.
     component: () => import(/* webpackChunkName: "dhcpIP" */ "../views/DHCP.vue")
   },
   {
@@ -29,14 +32,6 @@ const routes = [
     path: "/files",
     name: "FileManager",
     component: () => import(/* webpackChunkName: "staticIP" */ "../views/FileManager.vue")
-  },
-  {
-    path: "/update",
-    name: "Update",
-    // route level code-splitting
-    // this generates a separate chunk (about.[hash].js) for this route
-    // which is lazy-loaded when the route is visited.
-    component: () => import (/* webpackChunkName: "update" */ "../views/Update.vue")
   },
 ];
 

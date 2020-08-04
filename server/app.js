@@ -75,11 +75,6 @@ const config_lock_path = path.join(configFilesLocation, "/configuration.lock");
 const dhcpcd_lock_path = path.join(configFilesLocation, "/dhcpcd_conf.lock");
 const wpa_lock_path = path.join(configFilesLocation, "/wpa_conf.lock");
 
-// const configFilesLocation = "/var/www/html/website/config";
-// const config_lock_path = path.join(configFilesLocation, "/configuration.lock");
-// const dhcpcd_lock = path.join(configFilesLocation, "/dhcpcd_conf.lock");
-// const wpa_lock = path.join(configFilesLocation, "/wpa_conf.lock");
-
 app.get("/getDisplaySettings", (req, res) => {
   //deschidem fisierul lock
   const config_lock = fs.openSync(config_lock_path, "w+");

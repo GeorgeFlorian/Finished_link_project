@@ -17,10 +17,6 @@
             <router-link to="/staticIP">Static IP</router-link>
           </div>
         </li>
-        <!-- <li><router-link to="/files">Import/Export Files</router-link></li> -->
-        <li>
-          <router-link to="/update">Update</router-link>
-        </li>
         <li>
           <router-link to="/files">File Manager</router-link>
         </li>
