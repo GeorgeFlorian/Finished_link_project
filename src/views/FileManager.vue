@@ -61,7 +61,7 @@
                 <div class="file-size">{{ file.size }} kb</div>
                 <!-- right -->
                 <div class="action-buttons">
-                  <span @click="processFile(file.id)">
+                  <span @click="editFile(index)">
                     <i class="far fa-edit"></i>
                   </span>
 
@@ -77,9 +77,7 @@
               <progress :value="progress" max="100">{{progress}}%</progress>
         </span>-->
 
-        <div class="upload-message" v-if="message">
-          <div>{{ message }}</div>
-        </div>
+        <div class="upload-message" v-if="message">{{ message }}</div>
       </div>
     </div>
   </section>
@@ -95,6 +93,9 @@ import Editor from "../components/Editor";
 
 Vue.use(VModal, { dialog: true });
 
+const serverURL = location.origin;
+const server = axios.create({ baseURL: serverURL, timeout: 5000 });
+
 export default {
   name: "FileManager",
   components: {
@@ -107,7 +108,6 @@ export default {
       progress: 0,
       message: "",
       uploading: false,
-      error: false,
       dragging: false,
       oldIndex: "",
       newIndex: "",
@@ -122,35 +122,6 @@ export default {
     this.getFiles();
   },
   methods: {
-    updateFile(content) {
-      axios
-        .post("/updateFile", content)
-        .then((res) => {
-          console.log(res);
-        })
-        .catch((error) => {
-          console.error(error);
-        });
-    },
-    openModal(id) {
-      this.$modal.show(
-        Editor,
-        {
-          fileText: this.fileText,
-          fileName: this.currentFiles[id].name
-        },
-        {},
-        {
-          "custom-event": (text, name) => {
-            this.fileText = text;
-            console.log("Inside parent: ");
-            console.log(this.fileText);
-            console.log("File name: " + name);
-            // this.updateFile(this.fileText);
-          },
-        }
-      );
-    },
     mouseDown() {
       this.mouse_hold = true;
     },
@@ -181,59 +152,78 @@ export default {
       this.uploadFiles(event);
     },
     onEnd(event) {
-      // console.log(event);
       this.oldIndex = event.oldIndex;
       this.newIndex = event.newIndex;
     },
     // get file list from Express server
     getFiles() {
-      axios
+      server
         .get("/getFileList")
         .then((res) => {
           this.currentFiles = [];
+          // a string array containing the file names
+          // fill currentFiles array with file objects from File API files
+          // used for rendering file list on client side
           this.currentFiles = [...this.currentFiles, ...res.data];
           this.fileCount = this.currentFiles.length;
-          // console.log(this.currentFiles);
-          // console.log(this.fileCount);
         })
-        .catch((err) => {
-          console.error(err);
+        .catch((error) => {
+          console.error(error);
         });
     },
-    deleteFile(index) {
-      this.currentFiles.splice(index, 1);
+    deleteFile(id) {
       this.fileCount--;
-      // axios.
+      server
+        .post("/deleteFile", { fileName: this.currentFiles[id].name })
+        .then((res) => {
+          console.log("Delete File:", res.status);
+          this.message = this.currentFiles[id].name + " has been deleted";
+          this.getFiles();
+        })
+        .catch((error) => {
+          console.error(error);
+        });
     },
-    readFileAsync(file) {
-      return new Promise((resolve, reject) => {
-        let reader = new FileReader();
+    // facem un request POST catre server
+    // pentru a uploada fisierele
+    async uploadFiles(event) {
+      this.addFile(event);
+      const formData = new FormData();
+      var uploaded_files_count = 0;
 
-        reader.onload = () => {
-          resolve(reader.result);
-        };
-
-        reader.onerror = reject;
-
-        reader.readAsText(file, "UTF-8");
+      // lodash forEach
+      // send only validated (correct) files
+      _.forEach(this.uploadFilesArray, (file) => {
+        if (this.validate(file) === "") {
+          formData.append("files", file);
+          uploaded_files_count++;
+        }
       });
-    },
-    async processFile(id) {
+
       try {
-        let content = await this.readFileAsync(this.uploadFilesArray[id]);
-        this.fileText = "";
-        this.fileText = content;
-        // const lines = content.split(/[\r\n]+/g);
-        // lines.forEach((line, index) => {
-        //   // console.log(line);
-        //   this.fileText = [...this.fileText, line];
-        //   console.log(this.fileText[index]);
-        // });
-        this.openModal(id);
-      } catch (err) {
-        console.log(err);
+        this.uploading = true;
+        await server.post("/files", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (event) =>
+            (this.progress = Math.round((event.loaded * 100) / event.total)),
+        });
+
+        this.uploadFilesArray = [];
+        this.uploading = false;
+        this.getFiles();
+        if (uploaded_files_count)
+          this.message = "The files have been uploaded.";
+        else this.message = "No file has been uploaded.";
+      } catch (error) {
+        this.message = error.response.data.error;
+        this.uploading = false;
+        this.getFiles();
       }
     },
+    // populam array-urile currentFiles si uploadFilesArray
+    // cu fisierele obtinute din drag and drop
     addFile(e) {
       this.message = "";
       this.progress = 0;
@@ -241,20 +231,8 @@ export default {
       let droppedFiles = e.dataTransfer.files;
       //if no files were dropped, then return
       if (!droppedFiles) return;
-      // make an array of file objects from selectedFiles
-      // append to currentFiles array
-      // used for rendering on client side
-      this.currentFiles = [
-        ...this.currentFiles,
-        ..._.map(droppedFiles, (file) => ({
-          id: this.fileCount++,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          status: this.validate(file),
-        })),
-      ];
-      // fill array with files that are going to be uploaded
+      // fill array with File API files that are going to be uploaded
+      this.uploadFilesArray = [];
       this.uploadFilesArray = [...this.uploadFilesArray, ...droppedFiles];
     },
     // validate files
@@ -272,43 +250,51 @@ export default {
 
       return ""; // empty string = false
     },
-    // send file object to server
-    async uploadFiles(event) {
-      this.addFile(event);
-      const formData = new FormData();
-      var uploaded_files_count = 0;
-      // lodash forEach
-      // send only validated (correct) files
-
-      _.forEach(this.uploadFilesArray, (file) => {
-        if (this.validate(file) === "") {
-          formData.append("files", file);
-          uploaded_files_count++;
-        }
-      });
-
+    async editFile(id) {
       try {
-        this.uploading = true;
-        await axios.post("/files", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          onUploadProgress: (event) =>
-            (this.progress = Math.round((event.loaded * 100) / event.total)),
+        const res = await server.post("/readFileContent", {
+          fileName: this.currentFiles[id].name,
         });
-        if (uploaded_files_count)
-          this.message = "The files have been uploaded.";
-        else this.message = "No file has been uploaded.";
-
-        this.uploadFilesArray = [];
-        this.uploading = false;
-        this.getFiles();
-      } catch (err) {
-        this.message = err.response.data.error;
-        this.error = true;
-        this.uploading = false;
-        this.getFiles();
+        // console.log(res.data);
+        this.fileText = "";
+        this.fileText = res.data;
+      } catch (error) {
+        console.error(error);
       }
+      this.openModal(id);
+    },
+    openModal(id) {
+      this.$modal.show(
+        Editor,
+        {
+          fileText: this.fileText,
+          fileName: this.currentFiles[id].name,
+        },
+        {},
+        {
+          "custom-event": (text, name) => {
+            this.fileText = text;
+            console.log("Inside parent: ");
+            console.log(this.fileText);
+            console.log("custom-event File name: " + name);
+            this.updateFile(this.fileText, name);
+          },
+        }
+      );
+    },
+    updateFile(newContent, name) {
+      server
+        .post("/updateFile", {
+          content: newContent,
+          fileName: name,
+        })
+        .then((res) => {
+          console.log("Update File:", res.status);
+          this.message = name + " has been updated";
+        })
+        .catch((error) => {
+          console.error(error);
+        });
     },
   },
 };
@@ -412,8 +398,12 @@ export default {
 }
 
 .upload-message {
+  width: auto;
   position: relative;
   margin: 0 auto;
+  text-align: center;
+  margin: 0.5em;
+  padding: 0.5em;
 }
 .wrong-file {
   background-color: #7c3a42;

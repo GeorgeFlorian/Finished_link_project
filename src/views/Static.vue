@@ -12,8 +12,7 @@
           <form
             method="POST"
             name="simple_form"
-            @submit="ValidateIPaddressOnSubmit"
-            novalidate="true"
+            @submit.prevent="`${wifi ? sendWifi() : sendEthernet()}`"
           >
             <div class="input_radio">
               <span>Please select the type of connection:</span>
@@ -35,6 +34,7 @@
                   pattern=".{5,30}"
                   title="Enter between 5 and 30 characters"
                   required
+                  v-model.lazy="ssid"
                 />
                 <label class="label_" for="networkName">Network Name (SSID)</label>
               </div>
@@ -49,6 +49,7 @@
                   pattern=".{8,63}"
                   title="Enter between 8 and 63 characters"
                   required
+                  v-model.lazy="password"
                 />
                 <label class="label_" for="networkPassword">Password</label>
               </div>
@@ -59,52 +60,57 @@
                   type="text"
                   class="input_text"
                   placeholder="Type here IP Address"
-                  id="ipAddress"
-                  name="ipAddress"
+                  id="IP"
+                  name="IP"
                   required
-                  v-model.lazy="ipAddress"
+                  v-model="ipAddress"
+                  @change="validIP"
                 />
-                <label class="label_" for="ipAddress">IP Address</label>
+                <label class="label_" for="IP">IP Address</label>
               </div>
               <div class="input_row">
                 <input
                   type="text"
                   class="input_text"
                   placeholder="Type here Gateway"
-                  id="gateway"
-                  name="gateway"
+                  id="Gateway"
+                  name="Gateway"
                   required
                   v-model.lazy="gateway"
                 />
-                <label class="label_" for="gateway">Gateway</label>
+                <label class="label_" for="Gateway">Gateway</label>
               </div>
               <div class="input_row">
                 <input
                   type="text"
                   class="input_text"
                   placeholder="Type here Subnet Mask"
-                  id="subnet"
-                  name="subnet"
+                  id="SubnetMask"
+                  name="SubnetMask"
                   required
                   v-model.lazy="subnet"
                 />
-                <label class="label_" for="subnet">Subnet Mask</label>
+                <label class="label_" for="SubnetMask">Subnet Mask</label>
               </div>
               <div class="input_row">
                 <input
                   type="text"
                   class="input_text"
                   placeholder="Type here DNS"
-                  id="dns"
-                  name="dns"
+                  id="DNS"
+                  name="DNS"
                   required
                   v-model.lazy="dns"
                 />
-                <label class="label_" for="dns">DNS</label>
+                <label class="label_" for="DNS">DNS</label>
               </div>
             </div>
-            <input class="button" type="submit" name="saveStatic" value="Save Values" />
+            <input class="button" type="submit" value="Save Values" />
           </form>
+          <div class="message" v-if="message">{{ message }}</div>
+          <div class="errors" v-if="errors.length > 0">
+            <div v-for="error in errors" :key="error.id">{{error}}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -112,113 +118,198 @@
 </template>
 
 <script>
+import axios from "axios";
+
+const serverURL = location.origin;
+const server = axios.create({ baseURL: serverURL, timeout: 5000 });
+
 export default {
   name: "Static",
   data() {
     return {
       wifi: false,
       ethernet: false,
+      ssid: "",
+      password: "",
       ipAddress: "",
       gateway: "",
       subnet: "",
-      dns: ""
+      dns: "",
+      message: "",
+      dataSent: false,
+      errors: [],
     };
   },
   watch: {
-    ipAddress(value) {
-      this.ipAddress = value;
-      this.ValidateIPaddressOnChange(value, "ipAddress");
-    },
+    //   ipAddress(value) {
+    //     this.validateAdressOnChange(value, "IP");
+    //   },
     gateway(value) {
-      this.gateway = value;
-      this.ValidateIPaddressOnChange(value, "gateway");
+      this.validateAdressOnChange(value, "Gateway");
     },
     subnet(value) {
-      this.subnet = value;
-      this.ValidateIPaddressOnChange(value, "subnet");
+      this.validateAdressOnChange(value, "SubnetMask");
     },
     dns(value) {
-      this.dns = value;
-      this.ValidateIPaddressOnChange(value, "dns");
-    }
+      this.validateAdressOnChange(value, "DNS");
+    },
   },
   methods: {
-    ValidateIPaddressOnChange: function(value, inputName) {
+    netmaskToCidr(netmask) {
+      return netmask.split(".").reduce((c, o) => c - Math.log2(256 - +o), 32);
+    },
+    validIP(event) {
       var ipformat = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-      var strtype = "";
-      switch (inputName) {
-        case "ipAddress":
-          strtype = "IP Address";
-          break;
-        case "gateway":
-          strtype = "Gateway";
-          break;
-        case "dns":
-          strtype = "DNS";
-          break;
-        case "subnet":
-          strtype = "Subnet Mask";
-          break;
-      }
+      let value = event.target.value;
+      let inputName = event.target.name;
 
       if (!value.match(ipformat)) {
         this.$el.querySelector(`#${inputName}`).classList.remove("correct");
         this.$el.querySelector(`#${inputName}`).classList.add("wrong");
-        this.$el.querySelector(`#${inputName}`).focus();
-        alert(strtype + " is invalid!");
+        // this.$el.querySelector(`#${inputName}`).focus();
+        let error = `You have entered an invalid ${inputName} Address!`;
+        if (!this.errors.includes(error)) this.errors.push(error);
       } else if (value != null) {
         this.$el.querySelector(`#${inputName}`).classList.remove("wrong");
         this.$el.querySelector(`#${inputName}`).classList.add("correct");
+        var index = this.errors.indexOf(
+          `You have entered an invalid ${inputName} Address!`
+        );
+        if (index > -1) this.errors.splice(index, 1);
       }
     },
-    ValidateIPaddressOnSubmit: function(e) {
+    validateAdressOnChange(value, inputName) {
+      var ipformat = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+      if (!value.match(ipformat)) {
+        this.$el.querySelector(`#${inputName}`).classList.remove("correct");
+        this.$el.querySelector(`#${inputName}`).classList.add("wrong");
+        // this.$el.querySelector(`#${inputName}`).focus();
+        let error = `You have entered an invalid ${inputName} Address!`;
+        if (!this.errors.includes(error)) this.errors.push(error);
+      } else if (value != null) {
+        this.$el.querySelector(`#${inputName}`).classList.remove("wrong");
+        this.$el.querySelector(`#${inputName}`).classList.add("correct");
+        var index = this.errors.indexOf(
+          `You have entered an invalid ${inputName} Address!`
+        );
+        if (index > -1) this.errors.splice(index, 1);
+      }
+    },
+    checkSubmit() {
       var ipformat = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
       var ipaddr = this.ipAddress;
       var gateway = this.gateway;
       var subnet = this.subnet;
       var dns = this.dns;
-      var errors = [];
-
-      if (ipaddr.match(ipformat)) {
-        this.$el.querySelector(`#ipAddress`).focus();
-      } else {
-        errors.push("You have entered an invalid IP Address!");
-        alert("You have entered an invalid IP Address!");
-        this.$el.querySelector(`#ipAddress`).focus();
+      if (ipaddr.match(ipformat) == null) {
+        let err = "You have entered an invalid IP Address!";
+        console.log(err);
+        if (!this.errors.includes(err)) this.errors.push(err);
+      }
+      if (gateway.match(ipformat) == null) {
+        let err = "You have entered an invalid Gateway Address!";
+        if (!this.errors.includes(err)) this.errors.push(err);
+      }
+      if (subnet.match(ipformat) == null) {
+        let err = "You have entered an invalid SubnetMask Address!";
+        if (!this.errors.includes(err)) this.errors.push(err);
+      }
+      if (dns.match(ipformat) == null) {
+        let err = "You have entered an invalid DNS Address!";
+        if (!this.errors.includes(err)) this.errors.push(err);
       }
 
-      if (gateway.match(ipformat)) {
-        this.$el.querySelector(`#gateway`).focus();
-      } else {
-        errors.push("You have entered an invalid GATEWAY Address!");
-        window.alert("You have entered an invalid GATEWAY Address!");
-        this.$el.querySelector(`#gateway`).focus();
-      }
-
-      if (subnet.match(ipformat)) {
-        this.$el.querySelector(`#subnet`).focus();
-      } else {
-        errors.push("You have entered an invalid SUBNET Address!");
-        window.alert("You have entered an invalid SUBNET Address!");
-        this.$el.querySelector(`#subnet`).focus();
-      }
-
-      if (dns.match(ipformat)) {
-        this.$el.querySelector(`#dns`).focus();
-      } else {
-        errors.push("You have entered an invalid DNS Address!");
-        window.alert("You have entered an invalid DNS Address!");
-        this.$el.querySelector(`#dns`).focus();
-      }
-      
-      if (!errors.length) {
+      if (!this.errors.length) {
         return true;
+      } else {
+        return false;
       }
-
-      e.preventDefault();
-    }
+    },
+    sendWifi() {
+      if (this.checkSubmit()) {
+        server
+          .post(
+            "/staticWifi",
+            {
+              ssid: this.ssid,
+              password: this.password,
+              ipAddress: this.ipAddress,
+              gateway: this.gateway,
+              subnet: this.netmaskToCidr(this.subnet),
+              dns: this.dns,
+            },
+            {
+              headers: {
+                "Content-Type": "application/json;charset=UTF-8",
+              },
+            }
+          )
+          .then((res) => {
+            if (res.status == 200) {
+              this.dataSent = true;
+              this.errors = [];
+              this.message = "Settings have been saved.";
+              this.ssid = "";
+              this.password = "";
+              this.ipAddress = "";
+              this.gateway = "";
+              this.subnet = "";
+              this.dns = "";
+              this.dataSent = false;
+            } else {
+              this.errors.push("Something went wrong. Please try again");
+              this.dataSent = false;
+            }
+          })
+          .catch((error) => {
+            console.log(error);
+            this.message = "";
+            this.dataSent = false;
+          });
+      }
+    },
+    sendEthernet() {
+      if (this.checkSubmit()) {
+        server
+          .post(
+            "/staticEthernet",
+            {
+              ipAddress: this.ipAddress,
+              gateway: this.gateway,
+              subnet: this.netmaskToCidr(this.subnet),
+              dns: this.dns,
+            },
+            {
+              headers: {
+                "Content-Type": "application/json;charset=UTF-8",
+              },
+            }
+          )
+          .then((res) => {
+            if (res.status == 200) {
+              this.dataSent = true;
+              this.errors = [];
+              this.message = "Settings have been saved.";
+              this.ipAddress = "";
+              this.gateway = "";
+              this.subnet = "";
+              this.dns = "";
+              this.dataSent = false;
+            } else {
+              this.errors.push("Something went wrong. Please try again");
+              this.dataSent = false;
+            }
+          })
+          .catch((error) => {
+            console.log(error);
+            this.message = "";
+            this.dataSent = false;
+          });
+      }
+    },
   },
-  computed: {}
+  computed: {},
 };
 </script>
 
@@ -227,15 +318,12 @@ export default {
 .top_container {
   height: auto;
 }
-
 .mid_container .inner_container form {
   justify-content: flex-start;
 }
-
 .setting {
   color: #96ede5;
 }
-
 #wifiFields {
   width: 100%;
   flex-direction: column;
@@ -247,17 +335,14 @@ export default {
   flex-direction: column;
   align-items: center;
 }
-
 .input_radio {
   margin-top: 20px;
   color: white;
   text-align: center;
 }
-
 .input_radio input {
   display: none;
 }
-
 .input_radio span {
   font-size: 20px;
   color: white;
@@ -272,17 +357,14 @@ export default {
   background: rgba(0, 0, 0, 0.2);
   cursor: pointer;
 }
-
 .input_radio label:first-of-type {
   margin-right: 5px;
 }
-
 .input_radio label:hover,
 .input_radio input[type="radio"]:checked + label {
   color: red;
   background-color: rgba(0, 0, 0, 0.5);
 }
-
 .input_row .wrong {
   color: #e11422;
   font-weight: 700;
@@ -291,5 +373,18 @@ export default {
   color: #14e16d;
   font-weight: 700;
 }
-/* DHCP and Static IP Pages - END */
+
+.message,
+.errors {
+  text-align: center;
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #14e16d;
+  padding: 0.5em;
+  margin: 0.5em;
+}
+
+.errors {
+  color: #e11422;
+}
 </style>
