@@ -38,11 +38,8 @@ export default {
     },
     saveChanges() {
       if (this.changed) {
-        // console.log("I changed");
         this.emitToParent();
         this.$emit("close");
-        console.log("Inside child: ");
-        console.log(this.sendText);
         this.changed = false;
       } else {
         this.$emit("close");

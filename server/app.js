@@ -7,24 +7,31 @@ async function getIP() {
     .get("http://www.geoplugin.net/json.gp")
     .then((res) => {
       country_code = res.data.geoplugin_countryCode;
-      // console.log(ip);
     })
     .catch((error) => {
       console.error(error);
     });
 }
 
+// obtinem IP-ul de la API-ul geoplugin.net
+// il folosim pentru a obtine country_code-ul
+// de care avem nevoie in wpa_supplicant
+// https://wiki.archlinux.org/index.php/Wpa_supplicant
 getIP();
 
 const express = require("express");
+
 // librarie pentru upload de fisiere
+// https://github.com/expressjs/multer#readme
 const multer = require("multer");
 // Rezolva probleme de access in Single Page Applications
+// https://github.com/bripkens/connect-history-api-fallback#readme
 const history = require("connect-history-api-fallback");
 const path = require("path");
 // librarie care ne da acees la metode legate de sistemul de fisiere
 const fs = require("fs");
 // utilizam flock pentru a bloca fisiere pentru a evita race-condition
+// https://github.com/baudehlo/node-fs-ext
 const { flock } = require("fs-ext");
 const bodyParser = require("body-parser");
 const http = require("http");
@@ -33,9 +40,6 @@ const favicon = require("serve-favicon");
 // generating debug logs
 const debug = require("debug")("poi:server");
 const logger = require("morgan");
-
-// modulul de exec ne permite sa emitem comenzi in shell
-const { exec } = require("child_process");
 
 const app = express();
 
@@ -70,13 +74,13 @@ app.use(
 app.use(express.static(buildLocation));
 
 const configFilesLocation = path.join(__dirname, "/uploads");
-//declaram locatia fisierelor
+// declaram locatia fisierelor
 const config_lock_path = path.join(configFilesLocation, "/configuration.lock");
 const dhcpcd_lock_path = path.join(configFilesLocation, "/dhcpcd_conf.lock");
 const wpa_lock_path = path.join(configFilesLocation, "/wpa_conf.lock");
 
 app.get("/getDisplaySettings", (req, res) => {
-  //deschidem fisierul lock
+  // deschidem fisierul lock
   const config_lock = fs.openSync(config_lock_path, "w+");
 
   // blocam fisierul lock
@@ -95,7 +99,7 @@ app.get("/getDisplaySettings", (req, res) => {
         if (error) throw error;
         const fileContent = data;
         console.log("Current Display Settings:");
-        // create an object containing the text file lines
+        // creeam un obiect in care punem datele din fisiere linie cu linie
         const obj = {};
         const array = fileContent.split(/\r\n|\n/);
         for (let i = 0; i < array.length; i++) {
@@ -145,7 +149,6 @@ app.get("/getFileList", (req, res) => {
       type: "text/plain",
       status: "",
     }));
-    // console.log("fileList", fileList);
 
     // trimitem lista de obiecte de fisiere catre interfata Vue
     res.send(fileList);
@@ -157,36 +160,60 @@ app.post("/restart", (req, res) => {
   if (req.body.constructor === Object && Object.keys(req.body).length === 0)
     return;
 
-  let shell_command = req.body.command;
+  // // Metoda 1
+  // // modulul de exec ne permite sa emitem comenzi in shell
+  // const { exec } = require("child_process");
 
-  console.log("req.body: ");
-  console.log(shell_command);
+  // let shell_command = req.body.command;
 
-  async function shell(command) {
-    return new Promise((resolve, reject) => {
-      exec(command, (err, stdout, stderr) => {
-        if (err) {
-          console.error(`exec error: ${err}`);
-          reject(err);
-        } else {
-          //   console.log(`stdout: ${stdout}`);
-          //   console.error(`stderr: ${stderr}`);
-          resolve({ stdout, stderr });
-        }
-      });
-    });
-  }
+  // if (shell_command != "echo user_sudo_password | sudo -S reboot")
+  //   return res.status(404).send("Invalid command");
 
-  async function shellExec(command) {
-    let { stdout } = await shell(command);
-    for (let line of stdout.split("\n")) {
-      console.log(`cmd line: ${line}`);
+  // console.log("req.body: ");
+  // console.log(shell_command);
+  // // https://nodejs.org/api/child_process.html#child_process_child_process_exec_command_options_callback
+  // async function shell(command) {
+  //   return new Promise((resolve, reject) => {
+  //     exec(command, (err, stdout, stderr) => {
+  //       if (err) {
+  //         console.error(`exec error: ${err}`);
+  //         reject(err);
+  //       } else {
+  //         console.log(`stdout: ${stdout}`);
+  //         console.error(`stderr: ${stderr}`);
+  //         resolve({ stdout, stderr });
+  //         res.sendStatus(200);
+  //       }
+  //     });
+  //   });
+  // }
+
+  // async function shellExec(command) {
+  //   let { stdout } = await shell(command);
+  //   for (let line of stdout.split("\n")) {
+  //     console.log(`cmd line: ${line}`);
+  //   }
+  // }
+
+  // shellExec(shell_command);
+
+  // Metoda 2
+
+  // // https://nodejs.org/api/child_process.html#child_process_child_process_execfile_file_args_options_callback
+  // pentru ca aceasta metoda sa funtioneze trebuie sa facem fisierul script executabil
+  // putem face lucrul acesta folosind comanda chmod +x node_version.sh
+  const { execFile } = require("child_process");
+  const script = path.join(__dirname, "./scripts/node_version.sh");
+
+  execFile(script, (error, stdout, stderr) => {
+    if (error) {
+      console.error(stderr);
+      res.sendStatus(500);
+      throw error;
     }
-  }
-
-  shellExec(shell_command);
-
-  res.sendStatus(200);
+    console.log(stdout);
+    res.status(200).send("Node --version: " + stdout);
+  });
 });
 
 app.post("/changeSettings", (req, res) => {
@@ -239,6 +266,8 @@ app.post("/dhcpWifi", (req, res) => {
 
   let ssid = req.body.ssid;
   let pass = req.body.password;
+  // structura standard
+  // https://wiki.archlinux.org/index.php/dhcpcd
   const write_to_dhcpcd = `interface wlan0
 hostname MetriciDisplayWiFi
 clientid
@@ -246,6 +275,8 @@ interface eth0
 noipv4
 noipv6
 `;
+  // structura standard
+  // https://wiki.archlinux.org/index.php/Wpa_supplicant
   const write_to_wpa = `ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
 country=${country_code}
@@ -553,7 +584,7 @@ update_config=1
   res.sendStatus(200);
 });
 
-// HANDLE FILE UPLOAD
+// HANDLER PENTRU UPLOAD DE FISIERE
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "./uploads/");
@@ -593,7 +624,7 @@ app.post("/readFileContent", (req, res) => {
   let fileContent = "";
   const fileName = req.body.fileName;
   const fileLock = fileName.replace("txt", "lock");
-  //deschidem fisierul lock
+  // deschidem fisierul lock
   const file_lock = fs.openSync(path.join(configFilesLocation, fileLock), "w+");
 
   // blocam fisierul lock
@@ -609,9 +640,6 @@ app.post("/readFileContent", (req, res) => {
       (error, data) => {
         if (error) throw error;
         fileContent = data;
-        // console.log("File name:", fileName);
-        // console.log("Old Content:");
-        // console.log(fileContent);
         res.status(200).send(fileContent);
 
         // deblocam fisierul
@@ -635,7 +663,7 @@ app.post("/updateFile", (req, res) => {
   let newFileContent = req.body.content;
   const fileName = req.body.fileName;
   const fileLock = fileName.replace("txt", "lock");
-  //deschidem fisierul lock
+  // deschidem fisierul lock
   const file_lock = fs.openSync(path.join(configFilesLocation, fileLock), "w+");
 
   // console.log("Server file name: " + fileName);
@@ -674,7 +702,7 @@ app.post("/deleteFile", (req, res) => {
   }
   const fileName = req.body.fileName;
   const fileLock = fileName.replace("txt", "lock");
-  //deschidem fisierul lock
+  // deschidem fisierul lock
   const file_lock = fs.openSync(path.join(configFilesLocation, fileLock), "w+");
   console.log(fileLock);
 
@@ -686,8 +714,6 @@ app.post("/deleteFile", (req, res) => {
     // stergem fisierul ales
     fs.unlink(path.join(configFilesLocation, fileName), (error) => {
       if (error) return console.error(error);
-      console.log(`${fileName} was deleted`);
-      res.sendStatus(200);
       // deblocam fisierul
       flock(file_lock, "un", (error) => {
         if (error) return console.error(error);
@@ -695,12 +721,19 @@ app.post("/deleteFile", (req, res) => {
         console.log(`${fileLock} is unlocked.`);
         // inchidem fisierul lock
         fs.closeSync(file_lock);
+
+        fs.unlink(path.join(configFilesLocation, fileLock), (error) => {
+          if (error) return console.error(error);
+          console.log(`${fileName} was deleted`);
+          res.sendStatus(200);
+        });
       });
     });
   });
 });
 
-// catch 404 and forward to error handler
+// prinde orice eroare 404 - Not found
+// pentru rutele care nu au fost declarate anterior
 app.use(function(req, res, next) {
   console.dir(req);
   console.dir(res);
@@ -739,7 +772,6 @@ function onError(error) {
     throw error;
   }
   let port = this.address().port;
-  //   let port = http_port;
   let bind = typeof port === "string" ? "Pipe " + port : "Port " + port;
 
   // handle specific listen errors with friendly messages

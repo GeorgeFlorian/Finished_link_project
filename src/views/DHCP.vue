@@ -65,6 +65,7 @@
 </template>
 
 <script>
+import { mapActions } from "vuex";
 import axios from "axios";
 
 const serverURL = location.origin;
@@ -84,6 +85,18 @@ export default {
     };
   },
   methods: {
+    ...mapActions(["addLog"]),
+    getTime() {
+      const today = new Date();
+      let HH = today.getHours();
+      HH = ("0" + HH).slice(-2);
+      let MM = today.getMinutes();
+      MM = ("0" + MM).slice(-2);
+      let SS = today.getSeconds();
+      SS = ("0" + SS).slice(-2);
+      const time = `${HH}:${MM}:${SS}`;
+      return time;
+    },
     reset() {
       this.message = "";
       this.errorsSsid = [];
@@ -176,6 +189,11 @@ export default {
           .then((res) => {
             if (res.status == 200) {
               this.message = "DHCP WiFi settings have been saved.";
+              this.addLog(
+                `${this.getTime()} - DHCP WiFi settings have been saved.`
+              );
+              this.addLog(`${this.getTime()} - SSID: ${this.ssid}`);
+              this.addLog(`${this.getTime()} - Password: ${this.password}`);
               this.errors = [];
               this.ssid = "";
               this.password = "";
@@ -183,10 +201,16 @@ export default {
               this.ethernet = false;
             } else {
               this.errors.push("Something went wrong. Please try again");
+              this.addLog(
+                `${this.getTime()} - Something went wrong while trying to save DHCP WiFi settings. Please try again`
+              );
               this.message = "";
             }
           })
           .catch((error) => {
+            this.addLog(
+              `${this.getTime()} - Something went wrong while trying to save DHCP WiFi settings. Please try again`
+            );
             this.message = "";
             console.log(error);
           });
@@ -206,6 +230,9 @@ export default {
         .then((res) => {
           if (res.status == 200) {
             this.message = "DHCP Ethernet settings have been saved.";
+            this.addLog(
+              `${this.getTime()} - DHCP Ethernet settings have been saved.`
+            );
             this.errors = [];
             this.ssid = "";
             this.password = "";
@@ -213,11 +240,17 @@ export default {
             this.ethernet = false;
           } else {
             this.errors.push("Something went wrong. Please try again");
+            this.addLog(
+              `${this.getTime()} - Something went wrong while trying to save DHCP Ethernet settings. Please try again`
+            );
             this.message = "";
           }
         })
         .catch((error) => {
           this.message = "";
+          this.addLog(
+            `${this.getTime()} - Something went wrong while trying to save DHCP Ethernet settings. Please try again`
+          );
           console.log(error);
         });
     },

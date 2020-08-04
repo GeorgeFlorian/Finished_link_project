@@ -90,17 +90,28 @@
       <div class="title">
         <h1>Logs</h1>
       </div>
-      <div class="log_container"></div>
+      <div class="log_container">
+        <!-- <p v-for="log in logs" :key="log.name"> {{ log }} </p> -->
+        <Logs></Logs>
+      </div>
     </div>
+    <ShellExec></ShellExec>
   </section>
 </template>
 
 <script>
 import axios from "axios";
 import _ from "lodash";
+import ShellExec from "@/components/ShellExec";
+import Logs from "@/components/Logs";
+import { mapActions } from "vuex";
 
 export default {
   name: "Home",
+  components: {
+    ShellExec,
+    Logs,
+  },
   data() {
     return {
       oldSettings: {
@@ -114,14 +125,26 @@ export default {
         brightness: "",
       },
       ip: location.host,
-      wrong: '',
-      message: '',
+      wrong: "",
+      message: "",
     };
   },
   mounted() {
     this.getDisplaySettings();
   },
   methods: {
+    ...mapActions(["addLog"]),
+    getTime() {
+      const today = new Date();
+      let HH = today.getHours();
+      HH = ("0" + HH).slice(-2);
+      let MM = today.getMinutes();
+      MM = ("0" + MM).slice(-2);
+      let SS = today.getSeconds();
+      SS = ("0" + SS).slice(-2);
+      const time = `${HH}:${MM}:${SS}`;
+      return time;
+    },
     getDisplaySettings() {
       axios
         .get("/getDisplaySettings")
@@ -129,7 +152,6 @@ export default {
           this.oldSettings.url = res.data.line0;
           this.oldSettings.urr = res.data.line1;
           this.oldSettings.brightness = res.data.line2;
-          console.log(this.oldSettings);
         })
         .catch((error) => {
           console.error(error);
@@ -149,14 +171,33 @@ export default {
       if (this.newSettings.url === "") {
         this.newSettings.url = this.oldSettings.url;
         counter--;
+      } else {
+        this.addLog(`${this.getTime()} - New URL: ${this.newSettings.url}`);
       }
       if (this.newSettings.urr === "") {
         this.newSettings.urr = this.oldSettings.urr;
         counter--;
+      } else {
+        this.addLog(
+          `${this.getTime()} - New Refresh Interval: ${this.newSettings.urr}`
+        );
       }
       if (this.newSettings.brightness === "") {
         this.newSettings.brightness = this.oldSettings.brightness;
         counter--;
+      } else {
+        this.addLog(
+          `${this.getTime()} - New Brightness: ${this.newSettings.brightness}`
+        );
+      }
+
+      if (counter == 0) {
+        this.wrong = "Inputs are empty";
+        this.message = "";
+        this.newSettings.url = "";
+        this.newSettings.urr = "";
+        this.newSettings.brightness = "";
+        return;
       }
 
       axios
@@ -166,19 +207,17 @@ export default {
           this.newSettings.url = "";
           this.newSettings.urr = "";
           this.newSettings.brightness = "";
-          console.log("Save settings:", res.status);
-          if (counter == 0) {
-            this.wrong = "Inputs are empty";
-            this.message = '';
-          }
-          else if (counter == 1) {
+          
+          if (counter == 1) {
             this.message = "Value was saved.";
-            this.wrong = '';
-          }
-          else {
+            this.wrong = "";
+          } else {
             this.message = "Values were saved.";
-            this.wrong = '';
+            this.wrong = "";
           }
+          console.log("Save settings:", res.status);
+          this.addLog(`${this.getTime()} - Save Settings status: ${res.status}`);
+          this.addLog(`${this.getTime()} - The new settings have been saved.`);
 
           // updatam valorile din interfata
           this.getDisplaySettings();
@@ -221,5 +260,9 @@ form {
 
 .wrong {
   color: #e11422;
+}
+
+.log_container {
+  padding: 0.5em;
 }
 </style>

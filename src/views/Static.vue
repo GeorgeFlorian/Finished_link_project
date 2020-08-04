@@ -108,9 +108,9 @@
                 <label class="label_" for="DNS">DNS</label>
               </div>
             </div>
-            <input class="button" type="submit" value="Save Values" v-if="wifi || ethernet"/>
+            <input class="button" type="submit" value="Save Values" v-if="wifi || ethernet" />
           </form>
-          <div class="correct" v-if="message">{{ message }}</div>
+          <div class="message" v-if="message">{{ message }}</div>
           <div class="errors" v-if="errors.length > 0">
             <div v-for="error in errors" :key="error.id">{{error}}</div>
           </div>
@@ -121,6 +121,7 @@
 </template>
 
 <script>
+import { mapActions } from "vuex";
 import axios from "axios";
 
 const serverURL = location.origin;
@@ -143,8 +144,20 @@ export default {
     };
   },
   methods: {
+    ...mapActions(["addLog"]),
     netmaskToCidr(netmask) {
       return netmask.split(".").reduce((c, o) => c - Math.log2(256 - +o), 32);
+    },
+    getTime() {
+      const today = new Date();
+      let HH = today.getHours();
+      HH = ("0" + HH).slice(-2);
+      let MM = today.getMinutes();
+      MM = ("0" + MM).slice(-2);
+      let SS = today.getSeconds();
+      SS = ("0" + SS).slice(-2);
+      const time = `${HH}:${MM}:${SS}`;
+      return time;
     },
     validateAdressOnChange(event) {
       var ipformat = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
@@ -225,6 +238,11 @@ export default {
             if (res.status == 200) {
               this.errors = [];
               this.message = "Static WiFi settings have been saved.";
+              this.addLog(`${this.getTime()} - Static WiFi settings have been saved.`);
+              this.addLog(
+                `${this.getTime()} - New SSID: ${this.ssid}
+                ${this.getTime()} - New IP Address: ${this.ipAddress}`
+              );
               this.ssid = "";
               this.password = "";
               this.ipAddress = "";
@@ -235,9 +253,15 @@ export default {
               this.ethernet = false;
             } else {
               this.errors.push("Something went wrong. Please try again");
+              this.addLog(
+                `${this.getTime()} - Something went wrong while trying to save the new Static WiFi settings. Please try again`
+              );
             }
           })
           .catch((error) => {
+            this.addLog(
+              `${this.getTime()} - Something went wrong while trying to save the new Static WiFi settings. Please try again`
+            );
             console.log(error);
             this.message = "";
           });
@@ -264,6 +288,8 @@ export default {
             if (res.status == 200) {
               this.errors = [];
               this.message = "Static Ethernet settings have been saved.";
+              this.addLog(`${this.getTime()} - Static Ethernet settings have been saved.`);
+              this.addLog(`${this.getTime()} - New IP Address: ${this.ipAddress}`);
               this.ipAddress = "";
               this.gateway = "";
               this.subnet = "";
@@ -272,9 +298,15 @@ export default {
               this.ethernet = false;
             } else {
               this.errors.push("Something went wrong. Please try again");
+              this.addLog(
+                `${this.getTime()} - Something went wrong while trying to save the new Static Ethernet settings. Please try again`
+              );
             }
           })
           .catch((error) => {
+            this.addLog(
+              `${this.getTime()} - Something went wrong while trying to save the new Static Ethernet settings. Please try again`
+            );
             console.log(error);
             this.message = "";
           });
@@ -338,14 +370,14 @@ export default {
 }
 .input_row .wrong {
   color: #e11422;
-  font-weight: 700;
+  font-weight: bold;
 }
 .input_row .correct {
   color: #14e16d;
-  font-weight: 700;
+  font-weight: bold;
 }
 
-.correct,
+.message,
 .errors {
   text-align: center;
   font-size: 1.2em;

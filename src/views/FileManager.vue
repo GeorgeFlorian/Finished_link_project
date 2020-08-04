@@ -85,11 +85,18 @@
 
 <script>
 import Vue from "vue";
-import draggable from "vuedraggable";
+import { mapActions } from "vuex";
 import axios from "axios";
+// librarie de utilitati
+// https://lodash.com/
 import _ from "lodash";
+// librarie pentru lista de drag and drop
+// https://github.com/SortableJS/Vue.Draggable
+import draggable from "vuedraggable";
+// librarie pentru modalul care se deschide in momentul in care apasam pe butonul de log
+// https://github.com/euvl/vue-js-modal#readme
 import VModal from "vue-js-modal";
-import Editor from "../components/Editor";
+import Editor from "@/components/Editor";
 
 Vue.use(VModal, { dialog: true });
 
@@ -122,6 +129,7 @@ export default {
     this.getFiles();
   },
   methods: {
+    ...mapActions(["addLog"]),
     mouseDown() {
       this.mouse_hold = true;
     },
@@ -155,19 +163,31 @@ export default {
       this.oldIndex = event.oldIndex;
       this.newIndex = event.newIndex;
     },
-    // get file list from Express server
+    getTime() {
+      const today = new Date();
+      let HH = today.getHours();
+      HH = ("0" + HH).slice(-2);
+      let MM = today.getMinutes();
+      MM = ("0" + MM).slice(-2);
+      let SS = today.getSeconds();
+      SS = ("0" + SS).slice(-2);
+      const time = `${HH}:${MM}:${SS}`;
+      return time;
+    },
+    // facem un request get catre server pentru a obtine lista de fisiere existente
     getFiles() {
       server
         .get("/getFileList")
         .then((res) => {
           this.currentFiles = [];
-          // a string array containing the file names
-          // fill currentFiles array with file objects from File API files
-          // used for rendering file list on client side
+          // un string array ce contine numele fisierelor
+          // umplem 'currentFiles' cu obiecte ce contint informatii despre fisiere
+          // cu acest array compunem lista de fisiere din <draggable></draggable>
           this.currentFiles = [...this.currentFiles, ...res.data];
           this.fileCount = this.currentFiles.length;
         })
         .catch((error) => {
+          this.addLog(`${this.getTime()} - Something went wrong while obtaining the files list. Please try again.`);
           console.error(error);
         });
     },
@@ -177,10 +197,13 @@ export default {
         .post("/deleteFile", { fileName: this.currentFiles[id].name })
         .then((res) => {
           console.log("Delete File:", res.status);
-          this.message = this.currentFiles[id].name + " has been deleted";
+          this.addLog(`${this.getTime()} - Delete File response: ${res.status}`);
+          this.addLog(`${this.getTime()} - ${this.currentFiles[id].name} has been deleted`);
+          this.message = `${this.currentFiles[id].name} has been deleted`;
           this.getFiles();
         })
         .catch((error) => {
+          this.addLog(`${this.getTime()} - Something went wrong while deleting ${this.currentFiles[id].name}. Please try again.`);
           console.error(error);
         });
     },
@@ -191,8 +214,8 @@ export default {
       const formData = new FormData();
       var uploaded_files_count = 0;
 
-      // lodash forEach
-      // send only validated (correct) files
+      // forEach din libraria lodash
+      // trimitem doar fisiere valide
       _.forEach(this.uploadFilesArray, (file) => {
         if (this.validate(file) === "") {
           formData.append("files", file);
@@ -213,10 +236,15 @@ export default {
         this.uploadFilesArray = [];
         this.uploading = false;
         this.getFiles();
-        if (uploaded_files_count)
-          this.message = "The files have been uploaded.";
-        else this.message = "No file has been uploaded.";
+        if (uploaded_files_count == 0) {
+          this.message = "No file has been uploaded.";
+        } else if (uploaded_files_count == 1) {
+          this.message = `1 file has been uploaded`;
+        } else {
+          this.message = `${uploaded_files_count} have been uploaded`;
+        }
       } catch (error) {
+        this.addLog("${this.getTime()} - Something went wrong during upload. Please try again.");
         this.message = error.response.data.error;
         this.uploading = false;
         this.getFiles();
@@ -229,9 +257,10 @@ export default {
       this.progress = 0;
       this.dragging = false;
       let droppedFiles = e.dataTransfer.files;
-      //if no files were dropped, then return
+      // daca nu a fost dropat nici un fisier atunci iesim din functie
       if (!droppedFiles) return;
-      // fill array with File API files that are going to be uploaded
+      // populam array-ul 'uploadFilesArray' cu fisiere de tip FILE API
+      // https://developer.mozilla.org/en-US/docs/Web/API/File
       this.uploadFilesArray = [];
       this.uploadFilesArray = [...this.uploadFilesArray, ...droppedFiles];
     },
@@ -241,24 +270,32 @@ export default {
       const allowedTypes = ["text/plain"];
 
       if (!allowedTypes.includes(file.type)) {
+        this.addLog(`${this.getTime()} - ERROR - ${file.name} is not a text file !`);
         return "Only text files are allowed";
       }
 
       if (file.size > MAX_SIZE) {
+        this.addLog(`${this.getTime()} - ERROR - ${file.name} is too large !`);
         return `File too large. Max size is ${MAX_SIZE / 1000}kb`;
       }
 
+      this.addLog(`${this.getTime()} - ${file.name} will be uploaded.`);
       return ""; // empty string = false
     },
     async editFile(id) {
+      // incercam sa obtinem continutul fisierul
       try {
         const res = await server.post("/readFileContent", {
           fileName: this.currentFiles[id].name,
         });
-        // console.log(res.data);
         this.fileText = "";
+        // continutul fisierul este stocat in 'fileText'
+        // deoarece `fileText` este folosit drept `props` in componeneta copil
         this.fileText = res.data;
       } catch (error) {
+        this.addLog(
+          `${this.getTime()} - Something went wrong while editing ${this.currentFiles[id].name}. Please try again.`
+        );
         console.error(error);
       }
       this.openModal(id);
@@ -267,21 +304,22 @@ export default {
       this.$modal.show(
         Editor,
         {
+          // props pentru componenta copil
           fileText: this.fileText,
           fileName: this.currentFiles[id].name,
         },
         {},
         {
+          // handler pentru evenimentul 'custom-event' pe care il emiten in componenta copil
           "custom-event": (text, name) => {
+            // obtinem textul editat in interiorul componentei copil
             this.fileText = text;
-            console.log("Inside parent: ");
-            console.log(this.fileText);
-            console.log("custom-event File name: " + name);
             this.updateFile(this.fileText, name);
           },
         }
       );
     },
+    // schimbam continutul fisierului de mai sus printr-un post request catre server
     updateFile(newContent, name) {
       server
         .post("/updateFile", {
@@ -289,10 +327,15 @@ export default {
           fileName: name,
         })
         .then((res) => {
-          console.log("Update File:", res.status);
-          this.message = name + " has been updated";
+          console.log(`Save Changes response: ${res.status}`);
+          this.addLog(`${this.getTime()} - Save Changes response: ${res.status}`);
+          this.addLog(`${this.getTime()} - ${name} has been updated`);
+          this.message = `${name} has been updated`;
         })
         .catch((error) => {
+          this.addLog(
+            `${this.getTime()} - Something went wrong while trying to save ${name} . Please try again.`
+          );
           console.error(error);
         });
     },

@@ -1,10 +1,7 @@
 <template>
   <div id="wrapper">
-    <!-- <div class="input_row">
-      <input type="text" class="input_text" id="shell" v-model="shell_command" />
-      <label class="label_" for="shell">Type Shell Command</label>
-    </div>-->
     <button type="button" class="button" @click="restartDevice">Restart Device</button>
+    <div class="message" v-if="message">{{ message }}</div>
   </div>
 </template>
 
@@ -16,22 +13,24 @@ const server = axios.create({ baseURL: serverURL });
 
 export default {
   name: "ShellExec",
-  components: {},
   data() {
-    return {};
+    return {
+      message: '',
+    };
   },
   methods: {
-    restartDevice: () => {
-      let currentUrl = window.location.pathname;
-      // console.log("currentUrl: " + currentUrl);
-      server
-        .post(currentUrl, { command: "ls -l"})
-        // server.post("/home", "sudo reboot")
+    restartDevice() {
+      this.message = '';
+      // echo user_sudo_password ne permite sa trimitem parola de sudo a utilizatorul
+      // binteinteles ca aceasta metoda nu se recomanda in versiunile de productie
+      // aici o folosim doar pentru a demonstra capabilitatea de a rula comenzi shell folosind Vue si Express
+        server.post("/restart", { command: "echo user_sudo_password | sudo -S reboot"})
         .then(res => {
-          console.log("res.data: ");
-          console.log(res.data);
+          console.log("Request Status ", res.status);
+          this.message = res.data;
         })
         .catch(error => {
+          this.message = '';
           console.log(error);
         });
     }
@@ -53,5 +52,12 @@ export default {
 
 .button {
   display: inline-block;
+}
+
+.message {
+  text-align: center;
+  padding: 0.5em;
+  margin: 0.5em;
+  color: #14e16d;
 }
 </style>
